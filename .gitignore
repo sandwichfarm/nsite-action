@@ -1,0 +1,15 @@
+# Ignore downloaded binaries/archives
+nsyte
+nsyte.exe
+*.zip
+*.tar.gz
+
+# Ignore test output directory
+test-dist/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Node modules (if used for local testing/dev)
+node_modules/ 

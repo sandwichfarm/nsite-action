@@ -1,0 +1,216 @@
+name: 'nsite Action'
+description: 'Deploys static website files to Blossom/Nostr using the nsyte CLI.'
+author: 'nsite-action Developers' # Placeholder
+
+inputs:
+  nsyte_version:
+    description: 'The version of the nsyte CLI to use (e.g., "v0.3.6", "latest"). Needs to match a tag in github.com/sandwichfarm/nsyte/releases'
+    required: false
+    default: 'latest'
+  nbunksec:
+    description: 'The nbunksec string for authentication via NIP-46 bunker. Store this as a GitHub Secret.'
+    required: true
+  directory:
+    description: 'The directory containing the static files to upload.'
+    required: true
+  force:
+    description: 'Corresponds to the --force flag in nsyte upload. Re-upload all files.'
+    required: false
+    default: 'false'
+  purge:
+    description: 'Corresponds to the --purge flag in nsyte upload. Delete remote files not present locally.'
+    required: false
+    default: 'false'
+  verbose:
+    description: 'Corresponds to the --verbose flag in nsyte upload. Show detailed output.'
+    required: false
+    default: 'false'
+  concurrency:
+    description: 'Corresponds to the --concurrency flag in nsyte upload. Number of parallel uploads.'
+    required: false
+    default: '4'
+  fallback:
+    description: 'Corresponds to the --fallback flag in nsyte upload. Path to the fallback HTML file (e.g., /index.html for SPAs).'
+    required: false
+    default: '' # Default is no fallback specified to nsyte
+
+outputs:
+  status:
+    description: 'Status of the upload operation (e.g., "success"). More detailed outputs might be added later.'
+  nsyte_version_used:
+    description: 'The actual version of nsyte that was downloaded and used.'
+
+branding:
+  icon: 'upload-cloud'
+  color: 'purple'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine Platform
+      id: platform
+      shell: bash
+      run: |
+        OS=""
+        ARCH=""
+        EXE_SUFFIX="" # For windows binary name
+
+        if [[ "${{ runner.os }}" == "Linux" ]]; then OS="unknown-linux-gnu"; fi
+        if [[ "${{ runner.os }}" == "macOS" ]]; then OS="apple-darwin"; fi
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          OS="pc-windows-msvc"
+          EXE_SUFFIX=".exe" # Windows binaries often have .exe
+        fi
+
+        if [[ "${{ runner.arch }}" == "X64" ]]; then ARCH="x86_64"; fi
+        if [[ "${{ runner.arch }}" == "ARM64" ]]; then ARCH="aarch64"; fi
+
+        if [[ -z "$OS" || -z "$ARCH" ]]; then
+          echo "::error::Unsupported runner OS/Arch combination: ${{ runner.os }}/${{ runner.arch }}"
+          exit 1
+        fi
+        echo "Detected OS: $OS, ARCH: $ARCH"
+        echo "os_triple=$OS" >> $GITHUB_OUTPUT
+        echo "arch_triple=$ARCH" >> $GITHUB_OUTPUT
+        echo "asset_suffix=$ARCH-$OS.zip" >> $GITHUB_OUTPUT
+        echo "exe_suffix=$EXE_SUFFIX" >> $GITHUB_OUTPUT
+
+    - name: Set nsyte Version
+      id: version
+      shell: bash
+      # Use gh cli if available (preferred), otherwise fallback to curl/jq
+      run: |
+        NSYT_VERSION_INPUT="${{ inputs.nsyte_version }}"
+        NSYT_VERSION_FINAL=""
+
+        if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
+          echo "Input version is 'latest', resolving..."
+          if command -v gh &> /dev/null; then
+            echo "Using 'gh' CLI to find latest release."
+            LATEST_TAG=$(gh release list -R sandwichfarm/nsyte --limit 1 --json tagName --jq '.[0].tagName')
+            if [[ -z "$LATEST_TAG" ]]; then
+               echo "::error::Could not determine latest release tag using gh CLI."
+               exit 1
+            fi
+            NSYT_VERSION_FINAL="$LATEST_TAG"
+            echo "Resolved latest version: $NSYT_VERSION_FINAL"
+          else
+            echo "Using 'curl' and 'jq' to find latest release (jq must be available)."
+            # Check if jq is installed - add installation step if needed, or fail gracefully
+            if ! command -v jq &> /dev/null; then
+               echo "::error:: 'jq' is required to resolve the 'latest' version when 'gh' CLI is not available. Please install jq on the runner or specify an explicit nsyte_version."
+               exit 1
+            fi
+            LATEST_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | jq -r '.tag_name')
+             if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
+               echo "::error::Could not determine latest release tag using GitHub API and jq."
+               exit 1
+            fi
+            NSYT_VERSION_FINAL="$LATEST_TAG"
+            echo "Resolved latest version: $NSYT_VERSION_FINAL"
+          fi
+        else
+          echo "Using specified version: $NSYT_VERSION_INPUT"
+          NSYT_VERSION_FINAL="$NSYT_VERSION_INPUT"
+        fi
+
+        # Validate the resolved version looks like a tag (optional but good)
+        if [[ ! "$NSYT_VERSION_FINAL" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "::warning::Resolved version '$NSYT_VERSION_FINAL' does not look like a standard tag (e.g., vX.Y.Z). Proceeding anyway."
+        fi
+
+        echo "version=$NSYT_VERSION_FINAL" >> $GITHUB_OUTPUT
+
+    - name: Download and Extract nsyte
+      shell: bash
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        SUFFIX="${{ steps.platform.outputs.asset_suffix }}"
+        EXE_SUFFIX="${{ steps.platform.outputs.exe_suffix }}"
+        # Note: Assuming asset name convention is nsyte-{arch}-{os}.zip
+        # Adjust if sandwichfarm/nsyte uses a different convention (e.g., includes version in filename)
+        ASSET_FILENAME="nsyte-${SUFFIX}" # Example: nsyte-x86_64-unknown-linux-gnu.zip
+        DOWNLOAD_URL="https://github.com/sandwichfarm/nsyte/releases/download/${VERSION}/${ASSET_FILENAME}"
+
+        echo "Downloading nsyte $VERSION for ${{ steps.platform.outputs.arch_triple }}-${{ steps.platform.outputs.os_triple }}..."
+        echo "Download URL: $DOWNLOAD_URL"
+
+        # Use curl with error handling
+        curl -sSL --fail -o nsyte_release.zip "$DOWNLOAD_URL"
+        if [[ $? -ne 0 ]]; then
+          echo "::error::Failed to download nsyte binary from $DOWNLOAD_URL. Check version and platform support."
+          # List available assets for debugging? Requires gh or API call.
+          # Example using gh: gh release view $VERSION -R sandwichfarm/nsyte --json assets --jq '.assets[].name'
+          exit 1
+        fi
+
+        echo "Extracting nsyte..."
+        # Handle potential unzip errors
+        unzip -o nsyte_release.zip # Use -o to overwrite silently if it exists
+        if [[ $? -ne 0 ]]; then
+          echo "::error::Failed to unzip nsyte_release.zip."
+          ls -l # Show files in current directory for debugging
+          exit 1
+        fi
+
+        # Verify the binary exists (adjust path if unzip creates a subfolder)
+        NSYT_BINARY="nsyte${EXE_SUFFIX}"
+        if [[ ! -f "$NSYT_BINARY" ]]; then
+           echo "::error:: Expected nsyte binary '$NSYT_BINARY' not found after extraction."
+           echo "Files in current directory:"
+           ls -l
+           # Check common subfolder names if extraction nested it
+           if [[ -d "nsyte-${{ steps.platform.outputs.arch_triple }}-${{ steps.platform.outputs.os_triple }}" && -f "nsyte-${{ steps.platform.outputs.arch_triple }}-${{ steps.platform.outputs.os_triple }}/${NSYT_BINARY}" ]]; then
+             echo "Found binary in subfolder, moving it..."
+             mv "nsyte-${{ steps.platform.outputs.arch_triple }}-${{ steps.platform.outputs.os_triple }}/${NSYT_BINARY}" ./
+           else
+             exit 1
+           fi
+
+        fi
+
+        echo "Making nsyte binary executable..."
+        chmod +x "$NSYT_BINARY"
+
+        echo "nsyte binary path: $(pwd)/$NSYT_BINARY"
+        echo "nsyte_path=$(pwd)/$NSYT_BINARY" >> $GITHUB_OUTPUT
+
+
+    - name: Build nsyte command
+      id: build_cmd
+      shell: bash
+      run: |
+        # Use GITHUB_OUTPUT for potentially long command
+        {
+          echo -n "command=${{ steps.download_extract.outputs.nsyte_path }} upload '${{ inputs.directory }}' --nbunksec '${{ inputs.nbunksec }}'"
+          if [[ "${{ inputs.force }}" == "true" ]]; then echo -n " --force"; fi
+          if [[ "${{ inputs.purge }}" == "true" ]]; then echo -n " --purge"; fi
+          if [[ "${{ inputs.verbose }}" == "true" ]]; then echo -n " --verbose"; fi
+          # Only add fallback if it's not empty
+          if [[ -n "${{ inputs.fallback }}" ]]; then echo -n " --fallback '${{ inputs.fallback }}'"; fi
+          # Add concurrency, checking it's a number? Basic check for non-empty for now.
+          if [[ -n "${{ inputs.concurrency }}" ]]; then echo -n " --concurrency ${{ inputs.concurrency }}"; fi
+          # Add other flags as needed in the future
+          echo "" # Newline at the end
+        } >> $GITHUB_OUTPUT
+
+    - name: Run nsyte upload
+      id: nsyte_run
+      shell: bash
+      run: |
+        NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
+        echo "Executing nsyte command:"
+        # Mask the nbunksec value in the log output for security
+        MASKED_COMMAND=$(echo "$NSYT_COMMAND" | sed 's/--nbunksec '\''[^'\'']*'\''/--nbunksec '\''***MASKED***'\''/')
+        echo "$MASKED_COMMAND"
+
+        # Execute the actual command
+        if $NSYT_COMMAND; then
+           echo "nsyte upload completed successfully."
+           echo "status=success" >> $GITHUB_OUTPUT
+        else
+           echo "::error::nsyte upload command failed with exit code $?."
+           echo "status=failure" >> $GITHUB_OUTPUT
+           exit 1
+        fi
+        echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT 

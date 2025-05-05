@@ -1,0 +1,73 @@
+name: CI Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: read # Needed to checkout the code
+
+jobs:
+  test-action:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test on common OSes. Add more if nsyte supports them and has releases.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Optionally, test specific nsyte versions:
+        # nsyte_version: ['latest', 'v0.3.6'] # Example versions
+        nsyte_version: ['latest'] # Start with latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup dummy directory and secret
+        shell: bash
+        run: |
+          mkdir test-dist
+          echo "<html>Test</html>" > test-dist/index.html
+          # Use a fake nbunksec for testing command construction
+          echo "DUMMY_NBUNKSEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
+
+      - name: Run nsite-action (Local Path)
+        uses: ./ 
+        id: test_run
+        with:
+          nbunksec: ${{ env.DUMMY_NBUNKSEC }}
+          directory: './test-dist'
+          nsyte_version: ${{ matrix.nsyte_version }}
+          force: true
+          purge: false # Example
+          verbose: true
+          fallback: '/test.html'
+          concurrency: 2
+        continue-on-error: true
+
+      - name: Verify Action Attempted Run
+        shell: bash
+        run: |
+          echo "Action outputs:"
+          echo "  Status: ${{ steps.test_run.outputs.status }}"
+          echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version_used }}"
+          # A more robust check could involve analyzing the logs from the previous step
+          # to ensure the masked command was printed.
+          # For now, we rely on continue-on-error and checking outputs.
+
+          # Expect status to be 'failure' because the dummy nbunksec is invalid,
+          # but a non-empty version used indicates download likely worked.
+          if [[ -z "${{ steps.test_run.outputs.nsyte_version_used }}" ]]; then
+            echo "::error::Action did not output the nsyte version used. Download or execution likely failed early."
+            exit 1
+          fi
+          if [[ "${{ steps.test_run.outputs.status }}" == "success" ]]; then
+            echo "::error::Action unexpectedly succeeded with a dummy nbunksec!"
+            exit 1
+          fi
+          echo "Verification passed: Action ran, attempted upload (expected failure), and reported nsyte version." 
