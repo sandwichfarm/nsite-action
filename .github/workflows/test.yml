@@ -31,37 +31,45 @@ jobs:
         shell: bash
         run: |
           mkdir test-dist
-          echo "<html>Test</html>" > test-dist/index.html
+          echo "<html>Test index.html</html>" > test-dist/index.html
+          echo "<html>Test fallback.html</html>" > test-dist/fallback.html 
           echo "DUMMY_NBUNKSEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
 
       - name: Run nsite-action (Local Path)
         uses: ./ 
         id: test_run
         env:
-          GH_TOKEN: ${{ github.token }} # Provide GitHub token for gh CLI authentication
+          GH_TOKEN: ${{ github.token }}
         with:
           nbunksec: ${{ env.DUMMY_NBUNKSEC }}
-          directory: './assets/test.html'
+          directory: './test-dist'
           nsyte_version: ${{ matrix.nsyte_version }}
+          relays: |
+            wss://nostr.example.com
+            wss://relay.example.org
+          servers: |
+            wss://blossom.example.com
           force: true
-          purge: false # Example
+          purge: false
           verbose: true
-          fallback: './assets/test.html'
+          fallback: '/fallback.html'
           concurrency: 2
-        continue-on-error: true
+        continue-on-error: true # Expect failure with dummy nbunksec/relays/servers
 
       - name: Verify Action Attempted Run
         shell: bash
         run: |
           echo "Action outputs:"
           echo "  Status: ${{ steps.test_run.outputs.status }}"
-          echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version }}"
-          if [[ -z "${{ steps.test_run.outputs.nsyte_version }}" ]]; then
+          echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version_used }}"
+          
+          if [[ -z "${{ steps.test_run.outputs.nsyte_version_used }}" ]]; then
             echo "::error::Action did not output the nsyte version used. Download or execution likely failed early."
             exit 1
           fi
+          # With dummy nbunksec/relays/servers, nsyte should fail.
           if [[ "${{ steps.test_run.outputs.status }}" == "success" ]]; then
-            echo "::error::Action unexpectedly succeeded with a dummy nbunksec!"
+            echo "::error::Action unexpectedly succeeded with dummy inputs!"
             exit 1
           fi
-          echo "Verification passed: Action ran, attempted upload (expected failure), and reported nsyte version." 
+          echo "Verification passed: Action ran, attempted upload (expected failure with dummy inputs), and reported nsyte version." 

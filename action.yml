@@ -13,6 +13,12 @@ inputs:
   directory:
     description: 'The directory containing the static files to upload.'
     required: true
+  relays:
+    description: 'Array of Nostr relay WebSocket URIs to publish the site event to. Passed as a YAML array.'
+    required: true
+  servers:
+    description: 'Array of Blossom server WebSocket URIs to upload files to. Passed as a YAML array.'
+    required: true
   force:
     description: 'Corresponds to the --force flag in nsyte upload. Re-upload all files.'
     required: false
@@ -37,7 +43,7 @@ inputs:
 outputs:
   status:
     description: 'Status of the upload operation (e.g., "success"). More detailed outputs might be added later.'
-  nsyte_version:
+  nsyte_version_used:
     description: 'The actual version of nsyte that was downloaded and used.'
 
 branding:
@@ -236,4 +242,4 @@ runs:
            echo "status=failure" >> $GITHUB_OUTPUT
            exit 1
         fi
-        echo "nsyte_version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT 
+        echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT 

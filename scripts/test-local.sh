@@ -1,7 +1,6 @@
 #!/bin/bash
 # test-local.sh - Basic local test script for nsite-action
-# This does not actually run the action (you'd need act or similar for that)
-# but can be used to test the platform detection logic manually.
+# This does not actually run the action, just helps verify platform logic.
 
 set -e  # Exit on error
 
@@ -25,7 +24,9 @@ case "$(uname -s)" in
 esac
 
 echo "Detected platform: $PLATFORM"
-echo "Binary name would be: nsyte-$PLATFORM-VERSION$EXE_SUFFIX"
+VERSION_FOR_FILENAME="0.0.0" # Placeholder for local test
+FAKE_BINARY_NAME="nsyte-$PLATFORM-$VERSION_FOR_FILENAME$EXE_SUFFIX"
+echo "Binary name would be like: $FAKE_BINARY_NAME"
 
 # Check if gh CLI is available and authenticated
 echo
@@ -38,7 +39,6 @@ else
     echo "GitHub CLI authenticated."
     echo "Would use: gh release list -R sandwichfarm/nsyte"
     
-    # Optionally, show available release tags
     echo
     echo "Available nsyte releases (most recent first):"
     gh release list --limit 5 -R sandwichfarm/nsyte 2>/dev/null || echo "Could not fetch releases."
@@ -54,13 +54,18 @@ mkdir -p "test-local-dir"
 echo "<html><body>Test page</body></html>" > "test-local-dir/index.html"
 echo "Created test-local-dir/index.html"
 
+# Define dummy relays and servers for example
+TEST_RELAYS="wss://relay.example.com,wss://nostr.example.org"
+TEST_SERVERS="wss://blossom.example.com"
+
 echo
 echo "Would construct command like:"
-echo "nsyte-$PLATFORM-VERSION$EXE_SUFFIX upload './test-local-dir' --nbunksec 'nbunksec...' [FLAGS]"
+echo "$FAKE_BINARY_NAME upload './test-local-dir' --nbunksec 'nbunksec...' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' [OTHER_FLAGS]"
 
 echo
 echo "=== Test Complete ==="
 echo "To run the actual action, you'd need to:"
 echo "1. Push this repo to GitHub"
-echo "2. Set up appropriate secrets"
-echo "3. Run the workflow in Actions tab or use 'act' locally" 
+echo "2. Set up appropriate secrets (NBUNKSEC)"
+echo "3. Configure relays and servers in your workflow"
+echo "4. Run the workflow in Actions tab or use 'act' locally" 
