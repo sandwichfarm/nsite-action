@@ -105,8 +105,9 @@ runs:
         # Extract version number for asset filename
         if [[ "$NSYT_VERSION_FINAL" =~ ^v(.+)$ ]]; then VERSION_NUMBER="${BASH_REMATCH[1]}"; else VERSION_NUMBER="$NSYT_VERSION_FINAL"; fi
         echo "Using nsyte tag: $NSYT_VERSION_FINAL (version number for asset: $VERSION_NUMBER)"
-        echo "version=$NSYT_VERSION_FINAL" >> $GITHUB_OUTPUT
-        echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+        # Using ::set-output for version outputs as GITHUB_OUTPUT can be finicky in composite actions
+        echo "::set-output name=version::${NSYT_VERSION_FINAL}"
+        echo "::set-output name=version_number::${VERSION_NUMBER}"
 
     - name: Download nsyte
       id: download_nsyte 
@@ -133,12 +134,14 @@ runs:
           exit 1
         fi
         chmod +x "nsyte_bin/$ASSET_FILENAME"
-        echo "nsyte_path=$(pwd)/nsyte_bin/$ASSET_FILENAME" >> $GITHUB_OUTPUT
+        # Using ::set-output for nsyte_path
+        echo "::set-output name=nsyte_path::$(pwd)/nsyte_bin/$ASSET_FILENAME"
 
     - name: Build nsyte command
       id: build_cmd
       shell: bash
       run: |
+        # The -i flag is critical for non-interactive CI environments
         CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"${{ inputs.directory }}\" -i --nbunksec \"${{ inputs.nbunksec }}\""
         
         RELAYS_INPUT="${{ inputs.relays }}"
@@ -164,7 +167,8 @@ runs:
         if [[ "${{ inputs.verbose }}" == "true" ]]; then CMD+=" --verbose"; fi
         if [[ -n "${{ inputs.fallback }}" ]]; then CMD+=" --fallback \"${{ inputs.fallback }}\""; fi
         if [[ -n "${{ inputs.concurrency }}" ]]; then CMD+=" --concurrency ${{ inputs.concurrency }}"; fi
-        echo "command=$CMD" >> $GITHUB_OUTPUT
+        # Using ::set-output for command
+        echo "::set-output name=command::${CMD}"
 
     - name: Run nsyte upload
       id: nsyte_run
@@ -173,8 +177,8 @@ runs:
         set +e # Disable exit on error to manually handle exit codes and ensure outputs are set
         NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
         
-        # Set version used output regardless of command success/failure
-        echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+        # Set version used output using ::set-output
+        echo "::set-output name=nsyte_version_used::${{ steps.version.outputs.version }}"
 
         echo "Executing nsyte command (secrets masked):"
         MASKED_COMMAND=$(echo "$NSYT_COMMAND" | \
@@ -188,11 +192,11 @@ runs:
 
         if [[ $COMMAND_EXIT_CODE -eq 0 ]]; then
            echo "nsyte upload completed successfully."
-           echo "status=success" >> $GITHUB_OUTPUT
+           echo "::set-output name=status::success"
         else
            echo "::error::nsyte upload command failed with exit code $COMMAND_EXIT_CODE." # Log the error
-           echo "status=failure" >> $GITHUB_OUTPUT
-           # This script step itself should still exit 0 to ensure GITHUB_OUTPUT is processed.
+           echo "::set-output name=status::failure"
+           # This script step itself should still exit 0 to ensure outputs are processed.
            # The calling workflow (test.yml) has continue-on-error: true and will check the 'status' output.
         fi
         exit 0 # Explicitly exit 0 for this script step 
