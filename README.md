@@ -102,7 +102,7 @@ jobs:
         if: always() # Run even if the previous step failed
         run: |
           echo "nsite deployment status: ${{ steps.nsite_deploy.outputs.status }}"
-          echo "nsyte version used: ${{ steps.nsite_deploy.outputs.nsyte_version_used }}"
+          echo "nsyte version used: ${{ steps.nsite_deploy.outputs.nsyte_version }}"
           if [[ "${{ steps.nsite_deploy.outputs.status }}" != "success" ]]; then
             echo "Deployment failed!"
             exit 1
@@ -127,7 +127,7 @@ jobs:
 | Output               | Description                                                               |
 | -------------------- | ------------------------------------------------------------------------- |
 | `status`             | Status of the upload operation (`success` or `failure`).                  |
-| `nsyte_version_used` | The actual version tag of `nsyte` that was downloaded and used by the run. |
+| `nsyte_version` | The actual version tag of `nsyte` that was downloaded and used by the run. |
 
 ## Security
 

@@ -37,7 +37,7 @@ inputs:
 outputs:
   status:
     description: 'Status of the upload operation (e.g., "success"). More detailed outputs might be added later.'
-  nsyte_version_used:
+  nsyte_version:
     description: 'The actual version of nsyte that was downloaded and used.'
 
 branding:
@@ -206,16 +206,16 @@ runs:
       run: |
         # Use GITHUB_OUTPUT for potentially long command
         {
-          echo -n "command=${{ steps.download_extract.outputs.nsyte_path }} upload '${{ inputs.directory }}' --nbunksec '${{ inputs.nbunksec }}'"
+          echo -n "command=${{ steps.download_extract.outputs.nsyte_path }} upload '${{ inputs.directory }}' --nbunksec '${{ inputs.nbunksec }} --non-interactive'"
           if [[ "${{ inputs.force }}" == "true" ]]; then echo -n " --force"; fi
           if [[ "${{ inputs.purge }}" == "true" ]]; then echo -n " --purge"; fi
           if [[ "${{ inputs.verbose }}" == "true" ]]; then echo -n " --verbose"; fi
+
           # Only add fallback if it's not empty
           if [[ -n "${{ inputs.fallback }}" ]]; then echo -n " --fallback '${{ inputs.fallback }}'"; fi
-          # Add concurrency, checking it's a number? Basic check for non-empty for now.
+          
+          # Add concurrency, basic check for non empty
           if [[ -n "${{ inputs.concurrency }}" ]]; then echo -n " --concurrency ${{ inputs.concurrency }}"; fi
-          # Add other flags as needed in the future
-          echo "" # Newline at the end
         } >> $GITHUB_OUTPUT
 
     - name: Run nsyte upload
@@ -228,7 +228,6 @@ runs:
         MASKED_COMMAND=$(echo "$NSYT_COMMAND" | sed 's/--nbunksec '\''[^'\'']*'\''/--nbunksec '\''***MASKED***'\''/')
         echo "$MASKED_COMMAND"
 
-        # Execute the actual command
         if $NSYT_COMMAND; then
            echo "nsyte upload completed successfully."
            echo "status=success" >> $GITHUB_OUTPUT
@@ -237,4 +236,4 @@ runs:
            echo "status=failure" >> $GITHUB_OUTPUT
            exit 1
         fi
-        echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT 
+        echo "nsyte_version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT 

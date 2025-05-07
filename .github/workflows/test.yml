@@ -32,7 +32,6 @@ jobs:
         run: |
           mkdir test-dist
           echo "<html>Test</html>" > test-dist/index.html
-          # Use a fake nbunksec for testing command construction
           echo "DUMMY_NBUNKSEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
 
       - name: Run nsite-action (Local Path)
@@ -42,12 +41,12 @@ jobs:
           GH_TOKEN: ${{ github.token }} # Provide GitHub token for gh CLI authentication
         with:
           nbunksec: ${{ env.DUMMY_NBUNKSEC }}
-          directory: './test-dist'
+          directory: './assets/test.html'
           nsyte_version: ${{ matrix.nsyte_version }}
           force: true
           purge: false # Example
           verbose: true
-          fallback: '/test.html'
+          fallback: './assets/test.html'
           concurrency: 2
         continue-on-error: true
 
@@ -56,14 +55,8 @@ jobs:
         run: |
           echo "Action outputs:"
           echo "  Status: ${{ steps.test_run.outputs.status }}"
-          echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version_used }}"
-          # A more robust check could involve analyzing the logs from the previous step
-          # to ensure the masked command was printed.
-          # For now, we rely on continue-on-error and checking outputs.
-
-          # Expect status to be 'failure' because the dummy nbunksec is invalid,
-          # but a non-empty version used indicates download likely worked.
-          if [[ -z "${{ steps.test_run.outputs.nsyte_version_used }}" ]]; then
+          echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version }}"
+          if [[ -z "${{ steps.test_run.outputs.nsyte_version }}" ]]; then
             echo "::error::Action did not output the nsyte version used. Download or execution likely failed early."
             exit 1
           fi
