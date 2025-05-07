@@ -1,6 +1,6 @@
 name: 'nsite Action'
 description: 'Deploys static website files to Blossom/Nostr using the nsyte CLI.'
-author: 'nsite-action Developers' # Placeholder
+author: 'nsite-action Developers'
 
 inputs:
   nsyte_version:
@@ -77,24 +77,22 @@ runs:
         if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
           echo "Input version is 'latest', resolving..."
           LATEST_TAG=""
-          # Try GH CLI first if available and authenticated, using version sort
+          # Try GH CLI first: it respects the "latest" flag set in GitHub UI if --limit 1 is used.
           if command -v gh &> /dev/null && gh auth status &> /dev/null; then
-            echo "Using 'gh' CLI to find latest semantic version release."
-            # Get all release tags, filter for those starting with v<digit> (to avoid non-version tags),
-            # sort them using version sort (-V), and take the last one.
-            LATEST_TAG=$(gh release list -R sandwichfarm/nsyte --json tagName --jq '.[].tagName' 2>/dev/null | grep '^v[0-9]' | sort -V | tail -n 1)
+            echo "Using 'gh' CLI to find latest release."
+            LATEST_TAG=$(gh release list -R sandwichfarm/nsyte --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null)
           fi
-          # Fallback to curl if GH CLI failed, not available/authed, or returned no tag
+          # Fallback to curl /releases/latest endpoint if gh failed or not available/authed
           if [[ -z "$LATEST_TAG" ]]; then 
-            echo "Using GitHub API (curl) to find latest release (gh CLI failed or sort -V might not be available/effective)."
-            # This API endpoint gets the release marked as "latest" in the UI.
-            # If that's not updated, this will also be outdated.
-            # A more complex curl/jq/sort would be needed for true semantic latest via API without gh.
+            echo "Using GitHub API (curl) to find latest release (gh CLI failed or not available/authed)."
             LATEST_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d '"' -f 4)
-            if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then 
-                 # As a very last resort if /releases/latest gives nothing, try getting all and picking first (newest created)
-                 echo "/releases/latest endpoint gave no result, trying to get the most recently created release from the full list."
-                 LATEST_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/sandwichfarm/nsyte/releases | jq -r '.[0].tag_name' 2>/dev/null)
+          fi
+          # If still no tag, try the semantic sort as a robust last resort (requires sort -V, usually on Linux)
+          if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then 
+            echo "Fallback: Attempting semantic version sort of all release tags."
+            ALL_TAGS=$(gh release list -R sandwichfarm/nsyte --json tagName --jq '.[].tagName' 2>/dev/null)
+            if [[ -n "$ALL_TAGS" ]]; then
+                LATEST_TAG=$(echo "$ALL_TAGS" | grep '^v[0-9]' | sort -V | tail -n 1)
             fi
           fi
           if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then echo "::error::Failed to determine latest nsyte release tag."; exit 1; fi
@@ -145,7 +143,8 @@ runs:
         
         RELAYS_INPUT="${{ inputs.relays }}"
         if [[ -n "$RELAYS_INPUT" ]]; then
-          RELAYS_CSV=$(echo "$RELAYS_INPUT" | tr '\n' ',' | sed 's/,$//g' | sed 's/\r//g')
+          # Convert YAML multiline string to CSV, remove trailing comma if any
+          RELAYS_CSV=$(echo -e "${RELAYS_INPUT// /\\ }" | awk 'NF' ORS=',' | sed 's/,$//')
           if [[ -n "$RELAYS_CSV" ]]; then
              CMD+=" --relays \"$RELAYS_CSV\""
           fi
@@ -153,7 +152,8 @@ runs:
 
         SERVERS_INPUT="${{ inputs.servers }}"
         if [[ -n "$SERVERS_INPUT" ]]; then
-          SERVERS_CSV=$(echo "$SERVERS_INPUT" | tr '\n' ',' | sed 's/,$//g' | sed 's/\r//g')
+          # Convert YAML multiline string to CSV, remove trailing comma if any
+          SERVERS_CSV=$(echo -e "${SERVERS_INPUT// /\\ }" | awk 'NF' ORS=',' | sed 's/,$//')
           if [[ -n "$SERVERS_CSV" ]]; then
             CMD+=" --servers \"$SERVERS_CSV\""
           fi
