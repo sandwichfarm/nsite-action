@@ -186,5 +186,4 @@ runs:
         else
            echo "::error::nsyte upload command failed with exit code $?."
            echo "status=failure" >> $GITHUB_OUTPUT
-           exit 1
         fi 
