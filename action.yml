@@ -85,29 +85,58 @@ runs:
 
         if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
           echo "Input version is 'latest', resolving..."
+          GH_AVAILABLE=false
+          
+          # First check if gh CLI is available and functioning with auth
           if command -v gh &> /dev/null; then
-            echo "Using 'gh' CLI to find latest release."
-            LATEST_TAG=$(gh release list -R sandwichfarm/nsyte --limit 1 --json tagName --jq '.[0].tagName')
-            if [[ -z "$LATEST_TAG" ]]; then
-               echo "::error::Could not determine latest release tag using gh CLI."
-               exit 1
+            echo "gh CLI found, attempting to use it..."
+            # Test if GH_TOKEN is available by running a simple command
+            if gh api repos/sandwichfarm/nsyte &> /dev/null; then
+              GH_AVAILABLE=true
+              echo "Using 'gh' CLI to find latest release."
+              LATEST_TAG=$(gh release list -R sandwichfarm/nsyte --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null)
+              if [[ -z "$LATEST_TAG" ]]; then
+                 echo "::warning::Could not determine latest release tag using gh CLI. Will try API instead."
+                 GH_AVAILABLE=false
+              else
+                NSYT_VERSION_FINAL="$LATEST_TAG"
+                echo "Resolved latest version: $NSYT_VERSION_FINAL"
+              fi
+            else
+              echo "::warning::gh CLI found but lacks authentication. Will try API instead."
+              GH_AVAILABLE=false
             fi
-            NSYT_VERSION_FINAL="$LATEST_TAG"
-            echo "Resolved latest version: $NSYT_VERSION_FINAL"
           else
-            echo "Using 'curl' and 'jq' to find latest release (jq must be available)."
-            # Check if jq is installed - add installation step if needed, or fail gracefully
-            if ! command -v jq &> /dev/null; then
-               echo "::error:: 'jq' is required to resolve the 'latest' version when 'gh' CLI is not available. Please install jq on the runner or specify an explicit nsyte_version."
-               exit 1
-            fi
-            LATEST_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | jq -r '.tag_name')
-             if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
-               echo "::error::Could not determine latest release tag using GitHub API and jq."
-               exit 1
+            echo "gh CLI not available, will use direct API call."
+            GH_AVAILABLE=false
+          fi
+          
+          # If gh CLI failed or not available, fall back to direct API call
+          if [[ "$GH_AVAILABLE" != "true" ]]; then
+            echo "Using GitHub API to find latest release."
+            # Try first with curl/jq
+            if command -v jq &> /dev/null; then
+              LATEST_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | jq -r '.tag_name')
+              if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
+                echo "::warning::Could not determine latest release tag using GitHub API and jq."
+                # Last resort: try with curl and grep/cut for parsing
+                LATEST_TAG=$(curl -s https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | grep -o '"tag_name": "[^"]*' | cut -d'"' -f4)
+                if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
+                  echo "::error::Failed to determine latest release tag. Please specify an explicit nsyte_version."
+                  exit 1
+                fi
+              fi
+            else
+              # If jq not available, try with grep/cut
+              echo "jq not available, using curl with grep/cut for parsing."
+              LATEST_TAG=$(curl -s https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | grep -o '"tag_name": "[^"]*' | cut -d'"' -f4)
+              if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
+                echo "::error::Failed to determine latest release tag. Please specify an explicit nsyte_version."
+                exit 1
+              fi
             fi
             NSYT_VERSION_FINAL="$LATEST_TAG"
-            echo "Resolved latest version: $NSYT_VERSION_FINAL"
+            echo "Resolved latest version using API: $NSYT_VERSION_FINAL"
           fi
         else
           echo "Using specified version: $NSYT_VERSION_INPUT"
@@ -122,6 +151,7 @@ runs:
         echo "version=$NSYT_VERSION_FINAL" >> $GITHUB_OUTPUT
 
     - name: Download and Extract nsyte
+      id: download_extract
       shell: bash
       run: |
         VERSION="${{ steps.version.outputs.version }}"
@@ -139,8 +169,13 @@ runs:
         curl -sSL --fail -o nsyte_release.zip "$DOWNLOAD_URL"
         if [[ $? -ne 0 ]]; then
           echo "::error::Failed to download nsyte binary from $DOWNLOAD_URL. Check version and platform support."
-          # List available assets for debugging? Requires gh or API call.
-          # Example using gh: gh release view $VERSION -R sandwichfarm/nsyte --json assets --jq '.assets[].name'
+          # Try to list available assets for debugging
+          echo "Available assets for $VERSION:"
+          if command -v gh &> /dev/null && [[ -n "$GH_TOKEN" ]]; then
+            gh release view $VERSION -R sandwichfarm/nsyte --json assets --jq '.assets[].name' 2>/dev/null || echo "Could not list assets with gh CLI"
+          else
+            curl -s "https://api.github.com/repos/sandwichfarm/nsyte/releases/tags/$VERSION" | grep -o '"name": "nsyte-[^"]*' || echo "Could not list assets with API"
+          fi
           exit 1
         fi
 
@@ -182,7 +217,7 @@ runs:
       run: |
         # Use GITHUB_OUTPUT for potentially long command
         {
-          echo -n "command=${{ steps.download_extract.outputs.nsyte_path }} upload '${{ inputs.directory }}' --nbunksec '${{ inputs.nbunksec }}'"
+          echo -n "command=$(pwd)/nsyte${{ steps.platform.outputs.exe_suffix }} upload '${{ inputs.directory }}' --nbunksec '${{ inputs.nbunksec }}'"
           if [[ "${{ inputs.force }}" == "true" ]]; then echo -n " --force"; fi
           if [[ "${{ inputs.purge }}" == "true" ]]; then echo -n " --purge"; fi
           if [[ "${{ inputs.verbose }}" == "true" ]]; then echo -n " --verbose"; fi
