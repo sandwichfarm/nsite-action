@@ -206,7 +206,7 @@ runs:
       run: |
         # Use GITHUB_OUTPUT for potentially long command
         {
-          echo -n "command=${{ steps.download_extract.outputs.nsyte_path }} upload '${{ inputs.directory }}' --nbunksec '${{ inputs.nbunksec }} --non-interactive'"
+          echo -n "command=${{ steps.download_extract.outputs.nsyte_path }} upload '${{ inputs.directory }}' -i --nbunksec '${{ inputs.nbunksec }} '"
           if [[ "${{ inputs.force }}" == "true" ]]; then echo -n " --force"; fi
           if [[ "${{ inputs.purge }}" == "true" ]]; then echo -n " --purge"; fi
           if [[ "${{ inputs.verbose }}" == "true" ]]; then echo -n " --verbose"; fi
