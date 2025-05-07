@@ -139,7 +139,7 @@ runs:
       id: build_cmd
       shell: bash
       run: |
-        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"${{ inputs.directory }}\" --nbunksec \"${{ inputs.nbunksec }}\""
+        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"${{ inputs.directory }}\" -i --nbunksec \"${{ inputs.nbunksec }}\""
         
         RELAYS_INPUT="${{ inputs.relays }}"
         if [[ -n "$RELAYS_INPUT" ]]; then
