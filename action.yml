@@ -4,7 +4,7 @@ author: 'nsite-action Developers' # Placeholder
 
 inputs:
   nsyte_version:
-    description: 'The version of the nsyte CLI to use (e.g., "v0.3.6", "latest"). Needs to match a tag in github.com/sandwichfarm/nsyte/releases'
+    description: 'The version of the nsyte CLI to use (e.g., "v0.5.3", "latest"). Needs to match a tag in github.com/sandwichfarm/nsyte/releases'
     required: false
     default: 'latest'
   nbunksec:
@@ -38,11 +38,11 @@ inputs:
   fallback:
     description: 'Corresponds to the --fallback flag in nsyte upload. Path to the fallback HTML file (e.g., /index.html for SPAs).'
     required: false
-    default: '' # Default is no fallback specified to nsyte
+    default: ''
 
 outputs:
   status:
-    description: 'Status of the upload operation (e.g., "success"). More detailed outputs might be added later.'
+    description: 'Status of the upload operation (e.g., "success").'
   nsyte_version_used:
     description: 'The actual version of nsyte that was downloaded and used.'
 
@@ -57,22 +57,12 @@ runs:
       id: platform
       shell: bash
       run: |
-        # Simplified platform detection based on actual nsyte release naming
         PLATFORM=""
         EXE_SUFFIX=""
-
-        if [[ "${{ runner.os }}" == "Linux" ]]; then 
-          PLATFORM="linux"
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then 
-          PLATFORM="macos"
-        elif [[ "${{ runner.os }}" == "Windows" ]]; then
-          PLATFORM="windows"
-          EXE_SUFFIX=".exe"
-        else
-          echo "::error::Unsupported runner OS: ${{ runner.os }}"
-          exit 1
-        fi
-
+        if [[ "${{ runner.os }}" == "Linux" ]]; then PLATFORM="linux";
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then PLATFORM="macos";
+        elif [[ "${{ runner.os }}" == "Windows" ]]; then PLATFORM="windows"; EXE_SUFFIX=".exe";
+        else echo "::error::Unsupported runner OS: ${{ runner.os }}"; exit 1; fi
         echo "Detected platform: $PLATFORM"
         echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
         echo "exe_suffix=$EXE_SUFFIX" >> $GITHUB_OUTPUT
@@ -80,161 +70,117 @@ runs:
     - name: Set nsyte Version
       id: version
       shell: bash
-      # Use gh cli if available (preferred), otherwise fallback to curl/jq
       run: |
-        NSYTE_VERSION_INPUT="${{ inputs.nsyte_version }}"
-        NSYTE_VERSION_FINAL=""
+        NSYT_VERSION_INPUT="${{ inputs.nsyte_version }}"
+        NSYT_VERSION_FINAL=""
         VERSION_NUMBER=""
-
-        if [[ "$NSYTE_VERSION_INPUT" == "latest" ]]; then
+        if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
           echo "Input version is 'latest', resolving..."
-          GH_AVAILABLE=false
-          
-          # First check if gh CLI is available and functioning with auth
-          if command -v gh &> /dev/null; then
-            echo "gh CLI found, attempting to use it..."
-            # Test if GH_TOKEN is available by running a simple command
-            if gh api repos/sandwichfarm/nsyte &> /dev/null; then
-              GH_AVAILABLE=true
-              echo "Using 'gh' CLI to find latest release."
-              LATEST_TAG=$(gh release list -R sandwichfarm/nsyte --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null)
-              if [[ -z "$LATEST_TAG" ]]; then
-                 echo "::warning::Could not determine latest release tag using gh CLI. Will try API instead."
-                 GH_AVAILABLE=false
-              else
-                NSYTE_VERSION_FINAL="$LATEST_TAG"
-                echo "Resolved latest version: $NSYTE_VERSION_FINAL"
-              fi
-            else
-              echo "::warning::gh CLI found but lacks authentication. Will try API instead."
-              GH_AVAILABLE=false
-            fi
-          else
-            echo "gh CLI not available, will use direct API call."
-            GH_AVAILABLE=false
+          LATEST_TAG=""
+          # Try GH CLI first if available and authenticated, using version sort
+          if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+            echo "Using 'gh' CLI to find latest semantic version release."
+            # Get all release tags, filter for those starting with v<digit> (to avoid non-version tags),
+            # sort them using version sort (-V), and take the last one.
+            LATEST_TAG=$(gh release list -R sandwichfarm/nsyte --json tagName --jq '.[].tagName' 2>/dev/null | grep '^v[0-9]' | sort -V | tail -n 1)
           fi
-          
-          # If gh CLI failed or not available, fall back to direct API call
-          if [[ "$GH_AVAILABLE" != "true" ]]; then
-            echo "Using GitHub API to find latest release."
-            # Try first with curl/jq
-            if command -v jq &> /dev/null; then
-              LATEST_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | jq -r '.tag_name')
-              if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
-                echo "::warning::Could not determine latest release tag using GitHub API and jq."
-                # Last resort: try with curl and grep/cut for parsing
-                LATEST_TAG=$(curl -s https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | grep -o '"tag_name": "[^"]*' | cut -d'"' -f4)
-                if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
-                  echo "::error::Failed to determine latest release tag. Please specify an explicit nsyte_version."
-                  exit 1
-                fi
-              fi
-            else
-              # If jq not available, try with grep/cut
-              echo "jq not available, using curl with grep/cut for parsing."
-              LATEST_TAG=$(curl -s https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | grep -o '"tag_name": "[^"]*' | cut -d'"' -f4)
-              if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
-                echo "::error::Failed to determine latest release tag. Please specify an explicit nsyte_version."
-                exit 1
-              fi
+          # Fallback to curl if GH CLI failed, not available/authed, or returned no tag
+          if [[ -z "$LATEST_TAG" ]]; then 
+            echo "Using GitHub API (curl) to find latest release (gh CLI failed or sort -V might not be available/effective)."
+            # This API endpoint gets the release marked as "latest" in the UI.
+            # If that's not updated, this will also be outdated.
+            # A more complex curl/jq/sort would be needed for true semantic latest via API without gh.
+            LATEST_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/sandwichfarm/nsyte/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d '"' -f 4)
+            if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then 
+                 # As a very last resort if /releases/latest gives nothing, try getting all and picking first (newest created)
+                 echo "/releases/latest endpoint gave no result, trying to get the most recently created release from the full list."
+                 LATEST_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/sandwichfarm/nsyte/releases | jq -r '.[0].tag_name' 2>/dev/null)
             fi
-            NSYTE_VERSION_FINAL="$LATEST_TAG"
-            echo "Resolved latest version using API: $NSYTE_VERSION_FINAL"
           fi
+          if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then echo "::error::Failed to determine latest nsyte release tag."; exit 1; fi
+          NSYT_VERSION_FINAL="$LATEST_TAG"
+          echo "Resolved latest version: $NSYT_VERSION_FINAL"
         else
-          echo "Using specified version: $NSYTE_VERSION_INPUT"
-          NSYTE_VERSION_FINAL="$NSYTE_VERSION_INPUT"
+          NSYT_VERSION_FINAL="${{ inputs.nsyte_version }}"
+          echo "Using specified version: $NSYT_VERSION_FINAL"
         fi
-
-        # Extract just the version number without 'v' prefix for the filename
-        if [[ "$NSYTE_VERSION_FINAL" =~ ^v(.+)$ ]]; then
-            VERSION_NUMBER="${BASH_REMATCH[1]}"
-        else
-            VERSION_NUMBER="$NSYTE_VERSION_FINAL"
-        fi
-        
-        echo "Extracted version number: $VERSION_NUMBER"
-        echo "version=$NSYTE_VERSION_FINAL" >> $GITHUB_OUTPUT
+        # Extract version number for asset filename
+        if [[ "$NSYT_VERSION_FINAL" =~ ^v(.+)$ ]]; then VERSION_NUMBER="${BASH_REMATCH[1]}"; else VERSION_NUMBER="$NSYT_VERSION_FINAL"; fi
+        echo "Using nsyte tag: $NSYT_VERSION_FINAL (version number for asset: $VERSION_NUMBER)"
+        echo "version=$NSYT_VERSION_FINAL" >> $GITHUB_OUTPUT
         echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
 
-    - name: Download and Extract nsyte
-      id: download_extract
+    - name: Download nsyte
+      id: download_nsyte 
       shell: bash
       run: |
-        VERSION="${{ steps.version.outputs.version }}"
+        VERSION_TAG="${{ steps.version.outputs.version }}"
         VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
         PLATFORM="${{ steps.platform.outputs.platform }}"
         EXE_SUFFIX="${{ steps.platform.outputs.exe_suffix }}"
-
-        # Construct asset filename based on actual naming pattern:
-        # nsyte-linux-0.5.0, nsyte-macos-0.5.0, nsyte-windows-0.5.0.exe
         ASSET_FILENAME="nsyte-$PLATFORM-$VERSION_NUMBER$EXE_SUFFIX"
-        DOWNLOAD_URL="https://github.com/sandwichfarm/nsyte/releases/download/${VERSION}/${ASSET_FILENAME}"
-
-        echo "Downloading nsyte $VERSION for $PLATFORM..."
-        echo "Download URL: $DOWNLOAD_URL"
-
-        # Create a download directory
-        mkdir -p nsyte_download
-        cd nsyte_download
-
-        # Use curl with error handling
-        echo "Downloading asset file..."
-        HTTP_STATUS=$(curl -sL -w "%{http_code}" -o "$ASSET_FILENAME" "$DOWNLOAD_URL")
-        
+        DOWNLOAD_URL="https://github.com/sandwichfarm/nsyte/releases/download/$VERSION_TAG/$ASSET_FILENAME"
+        echo "Downloading nsyte $ASSET_FILENAME from $DOWNLOAD_URL"
+        mkdir -p nsyte_bin 
+        HTTP_STATUS=$(curl -sL -w "%{http_code}" -o "nsyte_bin/$ASSET_FILENAME" "$DOWNLOAD_URL")
         if [[ "$HTTP_STATUS" != "200" ]]; then
-          echo "::error::Failed to download nsyte binary from $DOWNLOAD_URL. HTTP Status: $HTTP_STATUS"
-          echo "Listing available assets for $VERSION to help with debugging:"
+          echo "::error::Failed to download $ASSET_FILENAME (HTTP Status: $HTTP_STATUS)."
+          echo "Please check if version '$VERSION_TAG' and asset '$ASSET_FILENAME' exist for platform '$PLATFORM'."
           
-          # Try to list available assets for debugging
-          if command -v gh &> /dev/null && [[ -n "$GH_TOKEN" ]]; then
-            gh release view "$VERSION" -R sandwichfarm/nsyte --json assets --jq '.assets[].name' 2>/dev/null || echo "Could not list assets with gh CLI"
-          else
-            curl -s "https://api.github.com/repos/sandwichfarm/nsyte/releases/tags/$VERSION" | grep -o '"name": "[^"]*' | cut -d'"' -f4 || echo "Could not list assets with API"
+          if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+            gh release view "$VERSION_TAG" -R sandwichfarm/nsyte --json assets --jq '.assets[].name' 2>/dev/null || echo "(Could not list assets with gh CLI)"
+          else 
+            curl -s "https://api.github.com/repos/sandwichfarm/nsyte/releases/tags/$VERSION_TAG" | grep '"name":' | cut -d '"' -f 4 || echo "(Could not list assets with API)"
           fi
-          
           exit 1
         fi
-
-        # Make the binary executable
-        chmod +x "$ASSET_FILENAME"
-        
-        # Move back to original directory
-        cd ..
-        
-        BINARY_PATH="$(pwd)/nsyte_download/$ASSET_FILENAME"
-        echo "nsyte binary path: $BINARY_PATH"
-        echo "nsyte_path=$BINARY_PATH" >> $GITHUB_OUTPUT
+        chmod +x "nsyte_bin/$ASSET_FILENAME"
+        echo "nsyte_path=$(pwd)/nsyte_bin/$ASSET_FILENAME" >> $GITHUB_OUTPUT
 
     - name: Build nsyte command
       id: build_cmd
       shell: bash
       run: |
-        # Use GITHUB_OUTPUT for potentially long command
-        {
-          echo -n "command=${{ steps.download_extract.outputs.nsyte_path }} upload '${{ inputs.directory }}' -i --nbunksec '${{ inputs.nbunksec }} '"
-          if [[ "${{ inputs.force }}" == "true" ]]; then echo -n " --force"; fi
-          if [[ "${{ inputs.purge }}" == "true" ]]; then echo -n " --purge"; fi
-          if [[ "${{ inputs.verbose }}" == "true" ]]; then echo -n " --verbose"; fi
+        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"${{ inputs.directory }}\" --nbunksec \"${{ inputs.nbunksec }}\""
+        
+        RELAYS_INPUT="${{ inputs.relays }}"
+        if [[ -n "$RELAYS_INPUT" ]]; then
+          RELAYS_CSV=$(echo "$RELAYS_INPUT" | tr '\n' ',' | sed 's/,$//g' | sed 's/\r//g')
+          if [[ -n "$RELAYS_CSV" ]]; then
+             CMD+=" --relays \"$RELAYS_CSV\""
+          fi
+        fi
 
-          # Only add fallback if it's not empty
-          if [[ -n "${{ inputs.fallback }}" ]]; then echo -n " --fallback '${{ inputs.fallback }}'"; fi
-          
-          # Add concurrency, basic check for non empty
-          if [[ -n "${{ inputs.concurrency }}" ]]; then echo -n " --concurrency ${{ inputs.concurrency }}"; fi
-        } >> $GITHUB_OUTPUT
+        SERVERS_INPUT="${{ inputs.servers }}"
+        if [[ -n "$SERVERS_INPUT" ]]; then
+          SERVERS_CSV=$(echo "$SERVERS_INPUT" | tr '\n' ',' | sed 's/,$//g' | sed 's/\r//g')
+          if [[ -n "$SERVERS_CSV" ]]; then
+            CMD+=" --servers \"$SERVERS_CSV\""
+          fi
+        fi
+
+        if [[ "${{ inputs.force }}" == "true" ]]; then CMD+=" --force"; fi
+        if [[ "${{ inputs.purge }}" == "true" ]]; then CMD+=" --purge"; fi
+        if [[ "${{ inputs.verbose }}" == "true" ]]; then CMD+=" --verbose"; fi
+        if [[ -n "${{ inputs.fallback }}" ]]; then CMD+=" --fallback \"${{ inputs.fallback }}\""; fi
+        if [[ -n "${{ inputs.concurrency }}" ]]; then CMD+=" --concurrency ${{ inputs.concurrency }}"; fi
+        echo "command=$CMD" >> $GITHUB_OUTPUT
 
     - name: Run nsyte upload
       id: nsyte_run
       shell: bash
       run: |
-        NSYTE_COMMAND="${{ steps.build_cmd.outputs.command }}"
-        echo "Executing nsyte command:"
-        # Mask the nbunksec value in the log output for security
-        MASKED_COMMAND=$(echo "$NSYTE_COMMAND" | sed 's/--nbunksec '\''[^'\'']*'\''/--nbunksec '\''***MASKED***'\''/')
+        NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
+        echo "Executing nsyte command (secrets masked):"
+        
+        MASKED_COMMAND=$(echo "$NSYT_COMMAND" | \
+          sed -e "s/--nbunksec \"[^\"]*\"/--nbunksec \"***MASKED***\"/" \
+              -e "s/--relays \"[^\"]*\"/--relays \"***MASKED***\"/" \
+              -e "s/--servers \"[^\"]*\"/--servers \"***MASKED***\"/")
         echo "$MASKED_COMMAND"
-
-        if $NSYTE_COMMAND; then
+        
+        
+        if eval "$NSYT_COMMAND"; then
            echo "nsyte upload completed successfully."
            echo "status=success" >> $GITHUB_OUTPUT
         else
