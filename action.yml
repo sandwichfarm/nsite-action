@@ -76,11 +76,11 @@ runs:
       shell: bash
       # Use gh cli if available (preferred), otherwise fallback to curl/jq
       run: |
-        NSYT_VERSION_INPUT="${{ inputs.nsyte_version }}"
-        NSYT_VERSION_FINAL=""
+        NSYTE_VERSION_INPUT="${{ inputs.nsyte_version }}"
+        NSYTE_VERSION_FINAL=""
         VERSION_NUMBER=""
 
-        if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
+        if [[ "$NSYTE_VERSION_INPUT" == "latest" ]]; then
           echo "Input version is 'latest', resolving..."
           GH_AVAILABLE=false
           
@@ -96,8 +96,8 @@ runs:
                  echo "::warning::Could not determine latest release tag using gh CLI. Will try API instead."
                  GH_AVAILABLE=false
               else
-                NSYT_VERSION_FINAL="$LATEST_TAG"
-                echo "Resolved latest version: $NSYT_VERSION_FINAL"
+                NSYTE_VERSION_FINAL="$LATEST_TAG"
+                echo "Resolved latest version: $NSYTE_VERSION_FINAL"
               fi
             else
               echo "::warning::gh CLI found but lacks authentication. Will try API instead."
@@ -132,23 +132,23 @@ runs:
                 exit 1
               fi
             fi
-            NSYT_VERSION_FINAL="$LATEST_TAG"
-            echo "Resolved latest version using API: $NSYT_VERSION_FINAL"
+            NSYTE_VERSION_FINAL="$LATEST_TAG"
+            echo "Resolved latest version using API: $NSYTE_VERSION_FINAL"
           fi
         else
-          echo "Using specified version: $NSYT_VERSION_INPUT"
-          NSYT_VERSION_FINAL="$NSYT_VERSION_INPUT"
+          echo "Using specified version: $NSYTE_VERSION_INPUT"
+          NSYTE_VERSION_FINAL="$NSYTE_VERSION_INPUT"
         fi
 
         # Extract just the version number without 'v' prefix for the filename
-        if [[ "$NSYT_VERSION_FINAL" =~ ^v(.+)$ ]]; then
+        if [[ "$NSYTE_VERSION_FINAL" =~ ^v(.+)$ ]]; then
             VERSION_NUMBER="${BASH_REMATCH[1]}"
         else
-            VERSION_NUMBER="$NSYT_VERSION_FINAL"
+            VERSION_NUMBER="$NSYTE_VERSION_FINAL"
         fi
         
         echo "Extracted version number: $VERSION_NUMBER"
-        echo "version=$NSYT_VERSION_FINAL" >> $GITHUB_OUTPUT
+        echo "version=$NSYTE_VERSION_FINAL" >> $GITHUB_OUTPUT
         echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
 
     - name: Download and Extract nsyte
@@ -222,13 +222,13 @@ runs:
       id: nsyte_run
       shell: bash
       run: |
-        NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
+        NSYTE_COMMAND="${{ steps.build_cmd.outputs.command }}"
         echo "Executing nsyte command:"
         # Mask the nbunksec value in the log output for security
-        MASKED_COMMAND=$(echo "$NSYT_COMMAND" | sed 's/--nbunksec '\''[^'\'']*'\''/--nbunksec '\''***MASKED***'\''/')
+        MASKED_COMMAND=$(echo "$NSYTE_COMMAND" | sed 's/--nbunksec '\''[^'\'']*'\''/--nbunksec '\''***MASKED***'\''/')
         echo "$MASKED_COMMAND"
 
-        if $NSYT_COMMAND; then
+        if $NSYTE_COMMAND; then
            echo "nsyte upload completed successfully."
            echo "status=success" >> $GITHUB_OUTPUT
         else
