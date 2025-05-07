@@ -171,14 +171,14 @@ runs:
       shell: bash
       run: |
         NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
+        echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+
         echo "Executing nsyte command (secrets masked):"
-        
         MASKED_COMMAND=$(echo "$NSYT_COMMAND" | \
           sed -e "s/--nbunksec \"[^\"]*\"/--nbunksec \"***MASKED***\"/" \
               -e "s/--relays \"[^\"]*\"/--relays \"***MASKED***\"/" \
               -e "s/--servers \"[^\"]*\"/--servers \"***MASKED***\"/")
         echo "$MASKED_COMMAND"
-        
         
         if eval "$NSYT_COMMAND"; then
            echo "nsyte upload completed successfully."
@@ -187,5 +187,4 @@ runs:
            echo "::error::nsyte upload command failed with exit code $?."
            echo "status=failure" >> $GITHUB_OUTPUT
            exit 1
-        fi
-        echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT 
+        fi 
