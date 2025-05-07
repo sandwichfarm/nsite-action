@@ -39,6 +39,8 @@ jobs:
       - name: Run nsite-action (Local Path)
         uses: ./ 
         id: test_run
+        env:
+          GH_TOKEN: ${{ github.token }} # Provide GitHub token for gh CLI authentication
         with:
           nbunksec: ${{ env.DUMMY_NBUNKSEC }}
           directory: './test-dist'
