@@ -9,32 +9,23 @@ echo "=== nsite-action Local Test ==="
 echo "Note: This does not run the full action, just helps verify platform logic."
 echo
 
-# Manually detect OS/ARCH similar to the action
-OS=""
-ARCH=""
+# Manually detect platform similar to the action
+PLATFORM=""
 EXE_SUFFIX=""
 
-# Detect OS
+# Detect OS (simplified to match asset naming pattern)
 case "$(uname -s)" in
-  Linux*)     OS="unknown-linux-gnu" ;;
-  Darwin*)    OS="apple-darwin" ;;
+  Linux*)     PLATFORM="linux" ;;
+  Darwin*)    PLATFORM="macos" ;;
   MINGW*|MSYS*|CYGWIN*) 
-    OS="pc-windows-msvc"
+    PLATFORM="windows"
     EXE_SUFFIX=".exe"
     ;;
   *)          echo "Unsupported OS: $(uname -s)" && exit 1 ;;
 esac
 
-# Detect architecture
-case "$(uname -m)" in
-  x86_64)     ARCH="x86_64" ;;
-  aarch64|arm64) ARCH="aarch64" ;;
-  *)          echo "Unsupported architecture: $(uname -m)" && exit 1 ;;
-esac
-
-echo "Detected OS: $OS"
-echo "Detected ARCH: $ARCH"
-echo "Asset suffix would be: $ARCH-$OS"
+echo "Detected platform: $PLATFORM"
+echo "Binary name would be: nsyte-$PLATFORM-VERSION$EXE_SUFFIX"
 
 # Check if gh CLI is available and authenticated
 echo
@@ -46,6 +37,11 @@ else
   if gh auth status &> /dev/null; then
     echo "GitHub CLI authenticated."
     echo "Would use: gh release list -R sandwichfarm/nsyte"
+    
+    # Optionally, show available release tags
+    echo
+    echo "Available nsyte releases (most recent first):"
+    gh release list --limit 5 -R sandwichfarm/nsyte 2>/dev/null || echo "Could not fetch releases."
   else
     echo "GitHub CLI not authenticated. Action would fall back to API."
   fi
@@ -60,7 +56,7 @@ echo "Created test-local-dir/index.html"
 
 echo
 echo "Would construct command like:"
-echo "./nsyte${EXE_SUFFIX} upload './test-local-dir' --nbunksec 'nbunksec...' [FLAGS]"
+echo "nsyte-$PLATFORM-VERSION$EXE_SUFFIX upload './test-local-dir' --nbunksec 'nbunksec...' [FLAGS]"
 
 echo
 echo "=== Test Complete ==="

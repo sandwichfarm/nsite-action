@@ -51,28 +51,24 @@ runs:
       id: platform
       shell: bash
       run: |
-        OS=""
-        ARCH=""
-        EXE_SUFFIX="" # For windows binary name
+        # Simplified platform detection based on actual nsyte release naming
+        PLATFORM=""
+        EXE_SUFFIX=""
 
-        if [[ "${{ runner.os }}" == "Linux" ]]; then OS="unknown-linux-gnu"; fi
-        if [[ "${{ runner.os }}" == "macOS" ]]; then OS="apple-darwin"; fi
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          OS="pc-windows-msvc"
-          EXE_SUFFIX=".exe" # Windows binaries often have .exe
-        fi
-
-        if [[ "${{ runner.arch }}" == "X64" ]]; then ARCH="x86_64"; fi
-        if [[ "${{ runner.arch }}" == "ARM64" ]]; then ARCH="aarch64"; fi
-
-        if [[ -z "$OS" || -z "$ARCH" ]]; then
-          echo "::error::Unsupported runner OS/Arch combination: ${{ runner.os }}/${{ runner.arch }}"
+        if [[ "${{ runner.os }}" == "Linux" ]]; then 
+          PLATFORM="linux"
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then 
+          PLATFORM="macos"
+        elif [[ "${{ runner.os }}" == "Windows" ]]; then
+          PLATFORM="windows"
+          EXE_SUFFIX=".exe"
+        else
+          echo "::error::Unsupported runner OS: ${{ runner.os }}"
           exit 1
         fi
-        echo "Detected OS: $OS, ARCH: $ARCH"
-        echo "os_triple=$OS" >> $GITHUB_OUTPUT
-        echo "arch_triple=$ARCH" >> $GITHUB_OUTPUT
-        echo "asset_suffix=$ARCH-$OS.zip" >> $GITHUB_OUTPUT
+
+        echo "Detected platform: $PLATFORM"
+        echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
         echo "exe_suffix=$EXE_SUFFIX" >> $GITHUB_OUTPUT
 
     - name: Set nsyte Version
@@ -82,6 +78,7 @@ runs:
       run: |
         NSYT_VERSION_INPUT="${{ inputs.nsyte_version }}"
         NSYT_VERSION_FINAL=""
+        VERSION_NUMBER=""
 
         if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
           echo "Input version is 'latest', resolving..."
@@ -143,73 +140,65 @@ runs:
           NSYT_VERSION_FINAL="$NSYT_VERSION_INPUT"
         fi
 
-        # Validate the resolved version looks like a tag (optional but good)
-        if [[ ! "$NSYT_VERSION_FINAL" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
-            echo "::warning::Resolved version '$NSYT_VERSION_FINAL' does not look like a standard tag (e.g., vX.Y.Z). Proceeding anyway."
+        # Extract just the version number without 'v' prefix for the filename
+        if [[ "$NSYT_VERSION_FINAL" =~ ^v(.+)$ ]]; then
+            VERSION_NUMBER="${BASH_REMATCH[1]}"
+        else
+            VERSION_NUMBER="$NSYT_VERSION_FINAL"
         fi
-
+        
+        echo "Extracted version number: $VERSION_NUMBER"
         echo "version=$NSYT_VERSION_FINAL" >> $GITHUB_OUTPUT
+        echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
 
     - name: Download and Extract nsyte
       id: download_extract
       shell: bash
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        SUFFIX="${{ steps.platform.outputs.asset_suffix }}"
+        VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
+        PLATFORM="${{ steps.platform.outputs.platform }}"
         EXE_SUFFIX="${{ steps.platform.outputs.exe_suffix }}"
-        # Note: Assuming asset name convention is nsyte-{arch}-{os}.zip
-        # Adjust if sandwichfarm/nsyte uses a different convention (e.g., includes version in filename)
-        ASSET_FILENAME="nsyte-${SUFFIX}" # Example: nsyte-x86_64-unknown-linux-gnu.zip
+
+        # Construct asset filename based on actual naming pattern:
+        # nsyte-linux-0.5.0, nsyte-macos-0.5.0, nsyte-windows-0.5.0.exe
+        ASSET_FILENAME="nsyte-$PLATFORM-$VERSION_NUMBER$EXE_SUFFIX"
         DOWNLOAD_URL="https://github.com/sandwichfarm/nsyte/releases/download/${VERSION}/${ASSET_FILENAME}"
 
-        echo "Downloading nsyte $VERSION for ${{ steps.platform.outputs.arch_triple }}-${{ steps.platform.outputs.os_triple }}..."
+        echo "Downloading nsyte $VERSION for $PLATFORM..."
         echo "Download URL: $DOWNLOAD_URL"
 
+        # Create a download directory
+        mkdir -p nsyte_download
+        cd nsyte_download
+
         # Use curl with error handling
-        curl -sSL --fail -o nsyte_release.zip "$DOWNLOAD_URL"
-        if [[ $? -ne 0 ]]; then
-          echo "::error::Failed to download nsyte binary from $DOWNLOAD_URL. Check version and platform support."
+        echo "Downloading asset file..."
+        HTTP_STATUS=$(curl -sL -w "%{http_code}" -o "$ASSET_FILENAME" "$DOWNLOAD_URL")
+        
+        if [[ "$HTTP_STATUS" != "200" ]]; then
+          echo "::error::Failed to download nsyte binary from $DOWNLOAD_URL. HTTP Status: $HTTP_STATUS"
+          echo "Listing available assets for $VERSION to help with debugging:"
+          
           # Try to list available assets for debugging
-          echo "Available assets for $VERSION:"
           if command -v gh &> /dev/null && [[ -n "$GH_TOKEN" ]]; then
-            gh release view $VERSION -R sandwichfarm/nsyte --json assets --jq '.assets[].name' 2>/dev/null || echo "Could not list assets with gh CLI"
+            gh release view "$VERSION" -R sandwichfarm/nsyte --json assets --jq '.assets[].name' 2>/dev/null || echo "Could not list assets with gh CLI"
           else
-            curl -s "https://api.github.com/repos/sandwichfarm/nsyte/releases/tags/$VERSION" | grep -o '"name": "nsyte-[^"]*' || echo "Could not list assets with API"
+            curl -s "https://api.github.com/repos/sandwichfarm/nsyte/releases/tags/$VERSION" | grep -o '"name": "[^"]*' | cut -d'"' -f4 || echo "Could not list assets with API"
           fi
+          
           exit 1
         fi
 
-        echo "Extracting nsyte..."
-        # Handle potential unzip errors
-        unzip -o nsyte_release.zip # Use -o to overwrite silently if it exists
-        if [[ $? -ne 0 ]]; then
-          echo "::error::Failed to unzip nsyte_release.zip."
-          ls -l # Show files in current directory for debugging
-          exit 1
-        fi
-
-        # Verify the binary exists (adjust path if unzip creates a subfolder)
-        NSYT_BINARY="nsyte${EXE_SUFFIX}"
-        if [[ ! -f "$NSYT_BINARY" ]]; then
-           echo "::error:: Expected nsyte binary '$NSYT_BINARY' not found after extraction."
-           echo "Files in current directory:"
-           ls -l
-           # Check common subfolder names if extraction nested it
-           if [[ -d "nsyte-${{ steps.platform.outputs.arch_triple }}-${{ steps.platform.outputs.os_triple }}" && -f "nsyte-${{ steps.platform.outputs.arch_triple }}-${{ steps.platform.outputs.os_triple }}/${NSYT_BINARY}" ]]; then
-             echo "Found binary in subfolder, moving it..."
-             mv "nsyte-${{ steps.platform.outputs.arch_triple }}-${{ steps.platform.outputs.os_triple }}/${NSYT_BINARY}" ./
-           else
-             exit 1
-           fi
-
-        fi
-
-        echo "Making nsyte binary executable..."
-        chmod +x "$NSYT_BINARY"
-
-        echo "nsyte binary path: $(pwd)/$NSYT_BINARY"
-        echo "nsyte_path=$(pwd)/$NSYT_BINARY" >> $GITHUB_OUTPUT
-
+        # Make the binary executable
+        chmod +x "$ASSET_FILENAME"
+        
+        # Move back to original directory
+        cd ..
+        
+        BINARY_PATH="$(pwd)/nsyte_download/$ASSET_FILENAME"
+        echo "nsyte binary path: $BINARY_PATH"
+        echo "nsyte_path=$BINARY_PATH" >> $GITHUB_OUTPUT
 
     - name: Build nsyte command
       id: build_cmd
@@ -217,7 +206,7 @@ runs:
       run: |
         # Use GITHUB_OUTPUT for potentially long command
         {
-          echo -n "command=$(pwd)/nsyte${{ steps.platform.outputs.exe_suffix }} upload '${{ inputs.directory }}' --nbunksec '${{ inputs.nbunksec }}'"
+          echo -n "command=${{ steps.download_extract.outputs.nsyte_path }} upload '${{ inputs.directory }}' --nbunksec '${{ inputs.nbunksec }}'"
           if [[ "${{ inputs.force }}" == "true" ]]; then echo -n " --force"; fi
           if [[ "${{ inputs.purge }}" == "true" ]]; then echo -n " --purge"; fi
           if [[ "${{ inputs.verbose }}" == "true" ]]; then echo -n " --verbose"; fi

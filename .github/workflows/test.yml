@@ -20,9 +20,8 @@ jobs:
       matrix:
         # Test on common OSes. Add more if nsyte supports them and has releases.
         os: [ubuntu-latest, macos-latest, windows-latest]
-        # Optionally, test specific nsyte versions:
-        # nsyte_version: ['latest', 'v0.3.6'] # Example versions
-        nsyte_version: ['latest'] # Start with latest
+        # Test with a specific version that we know exists and follows the observed pattern
+        nsyte_version: ['v0.5.0']
 
     steps:
       - name: Checkout Repository
