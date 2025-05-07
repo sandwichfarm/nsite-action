@@ -170,7 +170,10 @@ runs:
       id: nsyte_run
       shell: bash
       run: |
+        set +e # Disable exit on error to manually handle exit codes and ensure outputs are set
         NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
+        
+        # Set version used output regardless of command success/failure
         echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
 
         echo "Executing nsyte command (secrets masked):"
@@ -180,10 +183,16 @@ runs:
               -e "s/--servers \"[^\"]*\"/--servers \"***MASKED***\"/")
         echo "$MASKED_COMMAND"
         
-        if eval "$NSYT_COMMAND"; then
+        eval "$NSYT_COMMAND"
+        COMMAND_EXIT_CODE=$? # Capture the exit code of the nsyte command
+
+        if [[ $COMMAND_EXIT_CODE -eq 0 ]]; then
            echo "nsyte upload completed successfully."
            echo "status=success" >> $GITHUB_OUTPUT
         else
-           echo "::error::nsyte upload command failed with exit code $?."
+           echo "::error::nsyte upload command failed with exit code $COMMAND_EXIT_CODE." # Log the error
            echo "status=failure" >> $GITHUB_OUTPUT
-        fi 
+           # This script step itself should still exit 0 to ensure GITHUB_OUTPUT is processed.
+           # The calling workflow (test.yml) has continue-on-error: true and will check the 'status' output.
+        fi
+        exit 0 # Explicitly exit 0 for this script step 

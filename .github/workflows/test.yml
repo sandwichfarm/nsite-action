@@ -59,21 +59,28 @@ jobs:
       - name: Verify Action Attempted Run
         shell: bash
         run: |
-          echo "Action outputs:"
+          echo "Action outputs from test_run step:"
           echo "  Status: ${{ steps.test_run.outputs.status }}"
           echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version_used }}"
           
           if [[ -z "${{ steps.test_run.outputs.nsyte_version_used }}" ]]; then
-            echo "::error::Action did not output the nsyte version used. Download or execution likely failed early."
+            echo "::error::Output 'nsyte_version_used' was NOT set."
             exit 1
+          else
+            echo "Output 'nsyte_version_used' IS SET to: ${{ steps.test_run.outputs.nsyte_version_used }}"
           fi
-          # With dummy nbunksec/relays/servers, nsyte should fail.
-          if [[ "${{ steps.test_run.outputs.status }}" == "success" ]]; then
-            echo "::error::Action unexpectedly succeeded with dummy inputs!"
+
+          # Now that nsyte_version_used is confirmed, check status and version string
+          if [[ "${{ steps.test_run.outputs.status }}" != "failure" ]]; then
+            echo "::error::Expected status 'failure' due to dummy inputs, but got '${{ steps.test_run.outputs.status }}' or it was empty."
             exit 1
+          else
+            echo "Status output correctly set to 'failure'."
           fi
-          # Check if the version used is the expected latest (v0.5.3)
+
+          # Check if the version used is the expected latest (v0.5.3) when input is 'latest'
           if [[ "${{ inputs.nsyte_version }}" == "latest" && "${{ steps.test_run.outputs.nsyte_version_used }}" != "v0.5.3" ]]; then
-            echo "::warning::Latest version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.5.3. Check nsyte release tagging."
+            echo "::warning::Latest version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.5.3. Check nsyte release tagging or the action's version resolution logic."
+            # Not failing the test for this warning, but it's important to note.
           fi
-          echo "Verification passed: Action ran, attempted upload (expected failure with dummy inputs), and reported nsyte version." 
+          echo "Verification passed: Outputs are populated, and status is 'failure' as expected with dummy inputs." 
