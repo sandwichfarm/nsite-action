@@ -14,10 +14,10 @@ inputs:
     description: 'The directory containing the static files to upload.'
     required: true
   relays:
-    description: 'Array of Nostr relay WebSocket URIs to publish the site event to. Passed as a YAML array.'
+    description: 'YAML array of Nostr relay WebSocket URIs to publish the site event to. Example: ["wss://relay1.example.com", "wss://relay2.example.com"]'
     required: true
   servers:
-    description: 'Array of Blossom server WebSocket URIs to upload files to. Passed as a YAML array.'
+    description: 'YAML array of Blossom server WebSocket URIs to upload files to. Example: ["wss://server1.example.com", "wss://server2.example.com"]'
     required: true
   force:
     description: 'Corresponds to the --force flag in nsyte upload. Re-upload all files.'
@@ -66,6 +66,37 @@ runs:
         echo "Detected platform: $PLATFORM"
         echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
         echo "exe_suffix=$EXE_SUFFIX" >> $GITHUB_OUTPUT
+
+    - name: Ensure jq is installed
+      shell: bash
+      run: |
+        set -e
+        if [[ "${{ steps.platform.outputs.platform }}" == "linux" ]]; then
+          if ! command -v jq &> /dev/null; then
+            echo "jq not found, installing via apt-get..."
+            sudo apt-get update && sudo apt-get install -y jq
+          else
+            echo "jq is already installed."
+          fi
+        elif [[ "${{ steps.platform.outputs.platform }}" == "macos" ]]; then
+          if ! command -v jq &> /dev/null; then
+            echo "jq not found, installing via brew..."
+            brew install jq
+          else
+            echo "jq is already installed."
+          fi
+        elif [[ "${{ steps.platform.outputs.platform }}" == "windows" ]]; then
+          if ! command -v jq &> /dev/null; then
+            echo "jq not found, installing via choco..."
+            choco install jq -y
+            export PATH="$PATH:/c/ProgramData/chocolatey/bin"
+          else
+            echo "jq is already installed."
+          fi
+        else
+          echo "Unknown platform for jq installation."
+          exit 1
+        fi
 
     - name: Set nsyte Version
       id: version
@@ -144,19 +175,17 @@ runs:
         # The -i flag is critical for non-interactive CI environments
         CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"${{ inputs.directory }}\" -i --nbunksec \"${{ inputs.nbunksec }}\""
         
-        RELAYS_INPUT="${{ inputs.relays }}"
-        if [[ -n "$RELAYS_INPUT" ]]; then
-          # Convert YAML multiline string to CSV, remove trailing comma if any
-          RELAYS_CSV=$(echo -e "${RELAYS_INPUT// /\\ }" | awk 'NF' ORS=',' | sed 's/,$//')
+        # Handle relays as YAML array
+        if [[ -n "${{ inputs.relays }}" ]]; then
+          RELAYS_CSV=$(echo "${{ inputs.relays }}" | jq -r '. | join(",")')
           if [[ -n "$RELAYS_CSV" ]]; then
              CMD+=" --relays \"$RELAYS_CSV\""
           fi
         fi
 
-        SERVERS_INPUT="${{ inputs.servers }}"
-        if [[ -n "$SERVERS_INPUT" ]]; then
-          # Convert YAML multiline string to CSV, remove trailing comma if any
-          SERVERS_CSV=$(echo -e "${SERVERS_INPUT// /\\ }" | awk 'NF' ORS=',' | sed 's/,$//')
+        # Handle servers as YAML array
+        if [[ -n "${{ inputs.servers }}" ]]; then
+          SERVERS_CSV=$(echo "${{ inputs.servers }}" | jq -r '. | join(",")')
           if [[ -n "$SERVERS_CSV" ]]; then
             CMD+=" --servers \"$SERVERS_CSV\""
           fi
