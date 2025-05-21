@@ -9,10 +9,7 @@ Deploy static websites to Blossom/Nostr using [nsyte](https://github.com/sandwic
 
 1. **Setup nsyte locally** (one-time):
    ```bash
-   # Install nsyte
-   # Connect to bunker and export secret
-   nsyte bunker connect 'bunker://...'
-   nsyte bunker export  # Copy the nbunksec... output
+   nsyte ci
    ```
 
 2. **Add GitHub Secret**:
@@ -25,8 +22,11 @@ Deploy static websites to Blossom/Nostr using [nsyte](https://github.com/sandwic
      with:
        nbunksec: ${{ secrets.NBUNKSEC }}
        directory: './dist'  # Your built website directory
-       relays: ["wss://relay.damus.io", "wss://relay.snort.social"]
-       servers: ["wss://blossom.yourserver.com"]
+       relays: |
+         wss://relay.damus.io
+         wss://relay.snort.social
+       servers: |
+         wss://some.blossom.server.com
    ```
 
 ## Inputs
