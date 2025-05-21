@@ -16,11 +16,9 @@ inputs:
   relays:
     description: 'YAML array of Nostr relay WebSocket URIs to publish the site event to. Example: ["wss://relay1.example.com", "wss://relay2.example.com"]'
     required: true
-    default: []
   servers:
     description: 'YAML array of Blossom server WebSocket URIs to upload files to. Example: ["wss://server1.example.com", "wss://server2.example.com"]'
     required: true
-    default: []
   force:
     description: 'Corresponds to the --force flag in nsyte upload. Re-upload all files.'
     required: false
