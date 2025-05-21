@@ -34,15 +34,15 @@ fi
 
 echo "Repository: $OWNER/$REPO"
 
-# Generate release notes from git log (commits since previous tag)
-PREV_TAG=$(git describe --tags --abbrev=0 "$LATEST_TAG^" 2>/dev/null || echo "")
-if [ -n "$PREV_TAG" ]; then
-    echo "Generating release notes from commits since $PREV_TAG"
-    RELEASE_NOTES=$(git log --pretty=format:"- %s" "$PREV_TAG..$LATEST_TAG")
-else
-    echo "No previous tag found, using all commits for release notes"
-    RELEASE_NOTES=$(git log --pretty=format:"- %s" "$LATEST_TAG")
-fi
+# # Generate release notes from git log (commits since previous tag)
+# PREV_TAG=$(git describe --tags --abbrev=0 "$LATEST_TAG^" 2>/dev/null || echo "")
+# if [ -n "$PREV_TAG" ]; then
+#     echo "Generating release notes from commits since $PREV_TAG"
+#     RELEASE_NOTES=$(git log --pretty=format:"- %s" "$PREV_TAG..$LATEST_TAG")
+# else
+#     echo "No previous tag found, using all commits for release notes"
+#     RELEASE_NOTES=$(git log --pretty=format:"- %s" "$LATEST_TAG")
+# fi
 
 # Default release title
 RELEASE_TITLE="Release $LATEST_TAG"
@@ -61,8 +61,8 @@ if command -v gh &>/dev/null; then
         echo ""
         echo "With title: $RELEASE_TITLE"
         echo ""
-        echo "And release notes:"
-        echo "$RELEASE_NOTES"
+        # echo "And release notes:"
+        # echo "$RELEASE_NOTES"
         exit 0
     fi
     
@@ -89,8 +89,8 @@ else
     echo ""
     echo "With title: $RELEASE_TITLE"
     echo ""
-    echo "And release notes:"
-    echo "$RELEASE_NOTES"
+    # echo "And release notes:"
+    # echo "$RELEASE_NOTES"
 fi
 
 echo "Release process completed." 

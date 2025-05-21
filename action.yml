@@ -16,9 +16,11 @@ inputs:
   relays:
     description: 'YAML array of Nostr relay WebSocket URIs to publish the site event to. Example: ["wss://relay1.example.com", "wss://relay2.example.com"]'
     required: true
+    default: []
   servers:
     description: 'YAML array of Blossom server WebSocket URIs to upload files to. Example: ["wss://server1.example.com", "wss://server2.example.com"]'
     required: true
+    default: []
   force:
     description: 'Corresponds to the --force flag in nsyte upload. Re-upload all files.'
     required: false
@@ -177,7 +179,7 @@ runs:
         
         # Handle relays as YAML array
         if [[ -n "${{ inputs.relays }}" ]]; then
-          RELAYS_CSV=$(echo "${{ inputs.relays }}" | jq -r '. | join(",")')
+          RELAYS_CSV=$(echo "${{ inputs.relays }}" | jq -R . | jq -s . | jq -r '. | join(",")')
           if [[ -n "$RELAYS_CSV" ]]; then
              CMD+=" --relays \"$RELAYS_CSV\""
           fi
@@ -185,7 +187,7 @@ runs:
 
         # Handle servers as YAML array
         if [[ -n "${{ inputs.servers }}" ]]; then
-          SERVERS_CSV=$(echo "${{ inputs.servers }}" | jq -r '. | join(",")')
+          SERVERS_CSV=$(echo "${{ inputs.servers }}" | jq -R . | jq -s . | jq -r '. | join(",")')
           if [[ -n "$SERVERS_CSV" ]]; then
             CMD+=" --servers \"$SERVERS_CSV\""
           fi

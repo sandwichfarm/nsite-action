@@ -28,32 +28,32 @@ echo "Source version from VERSION file: $VERSION"
 GIT_TAG_VERSION="v$VERSION"
 
 # Check status of specific files
-FILES_STATUS=$(git status --porcelain "VERSION" "action.yml" "README.md" 2>/dev/null)
-COMMITTED_FILES=false
+# FILES_STATUS=$(git status --porcelain "VERSION" "action.yml" "README.md" 2>/dev/null)
+# COMMITTED_FILES=false
 
-if [ -n "$FILES_STATUS" ]; then
-    echo "Committing changes to version-related files..."
-    git add "VERSION" "action.yml" "README.md" 
+# if [ -n "$FILES_STATUS" ]; then
+#     echo "Committing changes to version-related files..."
+#     git add "VERSION" "action.yml" "README.md" 
     
-    COMMIT_MESSAGE="chore: bump version to $VERSION"
-    COMMIT_OUTPUT=$(git commit -m "$COMMIT_MESSAGE" 2>&1) || true
+#     COMMIT_MESSAGE="chore: bump version to $VERSION"
+#     COMMIT_OUTPUT=$(git commit -m "$COMMIT_MESSAGE" 2>&1) || true
     
-    if echo "$COMMIT_OUTPUT" | grep -q "nothing to commit"; then
-        echo "Nothing to commit. Monitored files are already in the desired state."
-    else
-        echo "Successfully committed version update: $VERSION"
-        COMMITTED_FILES=true
-    fi
-else
-    echo "No changes in version-related files to commit."
-fi
+#     if echo "$COMMIT_OUTPUT" | grep -q "nothing to commit"; then
+#         echo "Nothing to commit. Monitored files are already in the desired state."
+#     else
+#         echo "Successfully committed version update: $VERSION"
+#         COMMITTED_FILES=true
+#     fi
+# else
+#     echo "No changes in version-related files to commit."
+# fi
 
 # Check if there are other uncommitted changes
-GENERAL_STATUS=$(git status --porcelain | grep -v "VERSION" | grep -v "action.yml" | grep -v "README.md")
-if [ -n "$GENERAL_STATUS" ] && [ "$COMMITTED_FILES" != "true" ]; then
-    echo "Warning: Uncommitted changes detected in other files. Please commit or stash them if they should not be part of the version tag $GIT_TAG_VERSION."
-    echo "$GENERAL_STATUS"
-fi
+# GENERAL_STATUS=$(git status --porcelain | grep -v "VERSION" | grep -v "action.yml" | grep -v "README.md")
+# if [ -n "$GENERAL_STATUS" ] && [ "$COMMITTED_FILES" != "true" ]; then
+#     echo "Warning: Uncommitted changes detected in other files. Please commit or stash them if they should not be part of the version tag $GIT_TAG_VERSION."
+#     echo "$GENERAL_STATUS"
+# fi
 
 # Check if tag already exists locally
 if git tag -l "$GIT_TAG_VERSION" | grep -q "$GIT_TAG_VERSION"; then
