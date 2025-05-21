@@ -35,8 +35,8 @@ Deploy static websites to Blossom/Nostr using [nsyte](https://github.com/sandwic
 |-------|----------|---------|-------------|
 | `nbunksec` | Yes | - | Bunker auth string (store as GitHub Secret) |
 | `directory` | Yes | - | Directory containing website files |
-| `relays` | Yes | - | YAML array of relay URIs (e.g., ["wss://relay1", "wss://relay2"]) |
-| `servers` | Yes | - | YAML array of server URIs (e.g., ["https://cdn1", "https://cdn2"]) |
+| `relays` | Yes | - | Newline separated relay URIs |
+| `servers` | Yes | - | Newline separated server URIs |
 | `nsyte_version` | No | latest | Version tag (e.g., "v0.5.0") |
 | `force` | No | false | Re-upload all files |
 | `purge` | No | false | Delete remote files not present locally |
