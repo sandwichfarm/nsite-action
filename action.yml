@@ -187,17 +187,17 @@ runs:
         # The -i flag is critical for non-interactive CI environments
         CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"${{ inputs.directory }}\" -i --nbunksec \"${{ inputs.nbunksec }}\""
         
-        # Handle relays as YAML array
+        # Handle relays as newline-separated list
         if [[ -n "${{ inputs.relays }}" ]]; then
-          RELAYS_CSV=$(echo "${{ inputs.relays }}" | jq -R . | jq -s . | jq -r '. | join(",")')
+          RELAYS_CSV=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | paste -sd,)
           if [[ -n "$RELAYS_CSV" ]]; then
              CMD+=" --relays \"$RELAYS_CSV\""
           fi
         fi
 
-        # Handle servers as YAML array
+        # Handle servers as newline-separated list
         if [[ -n "${{ inputs.servers }}" ]]; then
-          SERVERS_CSV=$(echo "${{ inputs.servers }}" | jq -R . | jq -s . | jq -r '. | join(",")')
+          SERVERS_CSV=$(echo "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | paste -sd,)
           if [[ -n "$SERVERS_CSV" ]]; then
             CMD+=" --servers \"$SERVERS_CSV\""
           fi
