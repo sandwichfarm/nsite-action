@@ -3,7 +3,7 @@ description: 'Deploys static website files to Blossom/Nostr using the nsyte CLI.
 author: 'nsite-action Developers'
 
 inputs:
-  nsyte_version:
+  version:
     description: 'The version of the nsyte CLI to use (e.g., "v0.5.3", "latest"). Needs to match a tag in github.com/sandwichfarm/nsyte/releases'
     required: false
     default: 'latest'
@@ -114,7 +114,7 @@ runs:
       id: version
       shell: bash
       run: |
-        NSYT_VERSION_INPUT="${{ inputs.nsyte_version }}"
+        NSYT_VERSION_INPUT="${{ inputs.version }}"
         NSYT_VERSION_FINAL=""
         VERSION_NUMBER=""
         if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
@@ -142,7 +142,7 @@ runs:
           NSYT_VERSION_FINAL="$LATEST_TAG"
           echo "Resolved latest version: $NSYT_VERSION_FINAL"
         else
-          NSYT_VERSION_FINAL="${{ inputs.nsyte_version }}"
+          NSYT_VERSION_FINAL="${{ inputs.version }}"
           echo "Using specified version: $NSYT_VERSION_FINAL"
         fi
         # Extract version number for asset filename
