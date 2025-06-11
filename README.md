@@ -18,7 +18,7 @@ Deploy static websites to Blossom/Nostr using [nsyte](https://github.com/sandwic
 3. **Add to workflow**:
    ```yaml
    - name: Deploy to Nostr/Blossom
-     uses: your-username/nsite-action@v1
+     uses: sandwichfarm/nsite-action@v1
      with:
        nbunksec: ${{ secrets.NBUNKSEC }}
        directory: './dist'  # Your built website directory
