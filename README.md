@@ -7,6 +7,8 @@ Deploy static websites to Blossom/Nostr using [nsyte](https://github.com/sandwic
 
 ## Quick Start
 
+_You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte) to generate an **nbunksec**_
+
 1. **Setup nsyte locally** (one-time):
    ```bash
    nsyte ci
