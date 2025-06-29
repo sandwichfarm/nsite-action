@@ -13,6 +13,7 @@ _You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte)
    ```bash
    nsyte ci
    ```
+   Follow prompts for Nostr Connect and it will display an **nbunksec**; this is a revocable credential, but still treat it as a secret.
 
 2. **Add GitHub Secret**:
    - Add the `nbunksec` string as a repository secret named `NBUNKSEC`
