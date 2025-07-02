@@ -68,6 +68,10 @@ _You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte)
 - Consider pinning to specific `nsyte_version`
 - Rotate `nbunksec` periodically
 
+## Resources
+- [awesome-nostr](https://github.com/aljazceru/awesome-nostr)
+- [nsite.run](https://nsite.run)
+
 ## Development
 
 See [test.yml](.github/workflows/test.yml) for testing. Run `make test-local` for local testing.
