@@ -69,7 +69,7 @@ _You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte)
 - Rotate `nbunksec` periodically
 
 ## Resources
-- [awesome-nostr](https://github.com/aljazceru/awesome-nostr)
+- [awesome-nsite](https://github.com/nostrver-se/awesome-nsite)
 - [nsite.run](https://nsite.run)
 
 ## Development
