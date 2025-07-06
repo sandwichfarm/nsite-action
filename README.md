@@ -21,7 +21,7 @@ _You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte)
 3. **Add to workflow**:
    ```yaml
    - name: Deploy to Nostr/Blossom
-     uses: your-username/nsite-action@v1
+     uses: sandwichfarm/nsite-action@v1
      with:
        nbunksec: ${{ secrets.NBUNKSEC }}
        directory: './dist'  # Your built website directory
