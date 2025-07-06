@@ -3,7 +3,7 @@
 <!-- [![GitHub release (latest by date)](https://img.shields.io/github/v/release/your-username/nsite-action)](https://github.com/your-username/nsite-action/releases)
 [![GitHub Actions CI](https://github.com/your-username/nsite-action/actions/workflows/test.yml/badge.svg)](https://github.com/your-username/nsite-action/actions/workflows/test.yml) -->
 
-Deploy static websites to Blossom/Nostr using [nsyte](https://github.com/sandwichfarm/nsyte).
+Deploy static websites to Blossom/Nostr in a Github Actions Workflow, powered by [nsyte](https://github.com/sandwichfarm/nsyte).
 
 ## Quick Start
 
