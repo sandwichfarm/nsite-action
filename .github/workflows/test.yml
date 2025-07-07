@@ -13,7 +13,7 @@ permissions:
   contents: read # Needed to checkout the code
 
 jobs:
-  test-action:
+  test-nsyte:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -35,15 +35,16 @@ jobs:
           echo "<html>Test fallback.html</html>" > test-dist/fallback.html 
           echo "DUMMY_NBUNKSEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
 
-      - name: Run nsite-action (Local Path)
+      - name: Run nsite-action with nsyte (Local Path)
         uses: ./ 
         id: test_run
         env:
           GH_TOKEN: ${{ github.token }}
         with:
+          tool: nsyte  # Explicitly test nsyte
           nbunksec: ${{ env.DUMMY_NBUNKSEC }}
           directory: './test-dist'
-          nsyte_version: ${{ matrix.nsyte_version }}
+          version: ${{ matrix.nsyte_version }}
           relays: |
             wss://nostr.example.com
             wss://relay.example.org
@@ -56,31 +57,138 @@ jobs:
           concurrency: 2
         continue-on-error: true # Expect failure with dummy nbunksec/relays/servers
 
-      - name: Verify Action Attempted Run
+      - name: Verify nsyte Action Outputs
         shell: bash
         run: |
           echo "Action outputs from test_run step:"
           echo "  Status: ${{ steps.test_run.outputs.status }}"
-          echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version_used }}"
+          echo "  Tool Used: ${{ steps.test_run.outputs.tool_used }}"
+          echo "  Tool Version Used: ${{ steps.test_run.outputs.tool_version_used }}"
+          echo "  nsyte Version Used (deprecated): ${{ steps.test_run.outputs.nsyte_version_used }}"
           
-          if [[ -z "${{ steps.test_run.outputs.nsyte_version_used }}" ]]; then
-            echo "::error::Output 'nsyte_version_used' was NOT set."
+          # Verify tool_used output
+          if [[ "${{ steps.test_run.outputs.tool_used }}" != "nsyte" ]]; then
+            echo "::error::Expected tool_used to be 'nsyte', but got '${{ steps.test_run.outputs.tool_used }}'."
             exit 1
-          else
-            echo "Output 'nsyte_version_used' IS SET to: ${{ steps.test_run.outputs.nsyte_version_used }}"
+          fi
+          
+          # Verify version outputs
+          if [[ -z "${{ steps.test_run.outputs.tool_version_used }}" ]]; then
+            echo "::error::Output 'tool_version_used' was NOT set."
+            exit 1
           fi
 
-          # Now that nsyte_version_used is confirmed, check status and version string
+          # Check status
           if [[ "${{ steps.test_run.outputs.status }}" != "failure" ]]; then
-            echo "::error::Expected status 'failure' due to dummy inputs, but got '${{ steps.test_run.outputs.status }}' or it was empty."
+            echo "::error::Expected status 'failure' due to dummy inputs, but got '${{ steps.test_run.outputs.status }}'."
             exit 1
-          else
-            echo "Status output correctly set to 'failure'."
+          fi
+          
+          echo "Verification passed: All outputs are correctly populated."
+
+  test-npx-tools:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [nsite-cli, nous-cli, nostr-deploy-cli]
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup dummy directory and secret
+        shell: bash
+        run: |
+          mkdir test-dist
+          echo "<html>Test index.html</html>" > test-dist/index.html
+          echo "DUMMY_PRIVATE_KEY=nsec1fakeprivatekeyfortestingpurposesonly123456789" >> $GITHUB_ENV
+
+      - name: Run nsite-action with ${{ matrix.tool }}
+        uses: ./
+        id: test_run
+        with:
+          tool: ${{ matrix.tool }}
+          private_key: ${{ env.DUMMY_PRIVATE_KEY }}
+          directory: './test-dist'
+          relays: |
+            wss://nostr.example.com
+            wss://relay.example.org
+          servers: |
+            wss://blossom.example.com
+          verbose: true
+        continue-on-error: true # Expect failure with dummy credentials
+
+      - name: Verify ${{ matrix.tool }} Action Outputs
+        shell: bash
+        run: |
+          echo "Action outputs for ${{ matrix.tool }}:"
+          echo "  Status: ${{ steps.test_run.outputs.status }}"
+          echo "  Tool Used: ${{ steps.test_run.outputs.tool_used }}"
+          echo "  Tool Version Used: ${{ steps.test_run.outputs.tool_version_used }}"
+          
+          # Verify tool_used output
+          if [[ "${{ steps.test_run.outputs.tool_used }}" != "${{ matrix.tool }}" ]]; then
+            echo "::error::Expected tool_used to be '${{ matrix.tool }}', but got '${{ steps.test_run.outputs.tool_used }}'."
+            exit 1
+          fi
+          
+          # NPX tools should have 'latest' as version
+          if [[ "${{ steps.test_run.outputs.tool_version_used }}" != "latest" ]]; then
+            echo "::error::Expected tool_version_used to be 'latest' for NPX tools, but got '${{ steps.test_run.outputs.tool_version_used }}'."
+            exit 1
           fi
 
-          # Check if the version used is the expected latest (v0.5.3) when input is 'latest'
-          if [[ "${{ inputs.nsyte_version }}" == "latest" && "${{ steps.test_run.outputs.nsyte_version_used }}" != "v0.5.3" ]]; then
-            echo "::warning::Latest version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.5.3. Check nsyte release tagging or the action's version resolution logic."
-            # Not failing the test for this warning, but it's important to note.
+          # Check status
+          if [[ "${{ steps.test_run.outputs.status }}" != "failure" ]]; then
+            echo "::error::Expected status 'failure' due to dummy inputs, but got '${{ steps.test_run.outputs.status }}'."
+            exit 1
           fi
-          echo "Verification passed: Outputs are populated, and status is 'failure' as expected with dummy inputs." 
+          
+          echo "Verification passed for ${{ matrix.tool }}."
+
+  test-backward-compatibility:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup dummy directory and secret
+        shell: bash
+        run: |
+          mkdir test-dist
+          echo "<html>Test index.html</html>" > test-dist/index.html
+          echo "DUMMY_NBUNKSEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
+
+      - name: Run nsite-action without tool parameter (should default to nsyte)
+        uses: ./
+        id: test_default
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          nbunksec: ${{ env.DUMMY_NBUNKSEC }}
+          directory: './test-dist'
+          relays: |
+            wss://nostr.example.com
+          servers: |
+            wss://blossom.example.com
+        continue-on-error: true
+
+      - name: Verify backward compatibility
+        shell: bash
+        run: |
+          echo "Testing backward compatibility (no tool parameter):"
+          echo "  Tool Used: ${{ steps.test_default.outputs.tool_used }}"
+          
+          if [[ "${{ steps.test_default.outputs.tool_used }}" != "nsyte" ]]; then
+            echo "::error::Expected default tool to be 'nsyte', but got '${{ steps.test_default.outputs.tool_used }}'."
+            exit 1
+          fi
+          
+          echo "Backward compatibility verified: defaults to nsyte." 

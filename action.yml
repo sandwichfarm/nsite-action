@@ -1,15 +1,22 @@
 name: 'nsite Action'
-description: 'Deploys static website files to Blossom/Nostr using the nsyte CLI.'
+description: 'Deploys static website files to Blossom/Nostr using nsite deployment tools.'
 author: 'nsite-action Developers'
 
 inputs:
+  tool:
+    description: 'The deployment tool to use: nsyte (default), nsite-cli, nous-cli, or nostr-deploy-cli'
+    required: false
+    default: 'nsyte'
   version:
-    description: 'The version of the nsyte CLI to use (e.g., "v0.5.3", "latest"). Needs to match a tag in github.com/sandwichfarm/nsyte/releases'
+    description: 'The version of the deployment tool to use (e.g., "v0.5.3", "latest"). Only applies to binary tools (nsyte).'
     required: false
     default: 'latest'
   nbunksec:
-    description: 'The nbunksec string for authentication via NIP-46 bunker. Store this as a GitHub Secret.'
-    required: true
+    description: 'The nbunksec string for authentication via NIP-46 bunker (only supported by nsyte). Store this as a GitHub Secret.'
+    required: false
+  private_key:
+    description: 'The Nostr private key in nsec format. Required for tools that do not support bunker. Store this as a GitHub Secret.'
+    required: false
   directory:
     description: 'The directory containing the static files to upload.'
     required: true
@@ -54,9 +61,13 @@ inputs:
 
 outputs:
   status:
-    description: 'Status of the upload operation (e.g., "success").'
+    description: 'Status of the deployment operation (e.g., "success").'
+  tool_used:
+    description: 'The deployment tool that was used.'
+  tool_version_used:
+    description: 'The actual version of the deployment tool that was used (for binary tools).'
   nsyte_version_used:
-    description: 'The actual version of nsyte that was downloaded and used.'
+    description: 'DEPRECATED: Use tool_version_used instead. Kept for backward compatibility.'
 
 branding:
   icon: 'upload-cloud'
@@ -78,6 +89,37 @@ runs:
         echo "Detected platform: $PLATFORM"
         echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
         echo "exe_suffix=$EXE_SUFFIX" >> $GITHUB_OUTPUT
+
+    - name: Validate Inputs
+      shell: bash
+      run: |
+        TOOL="${{ inputs.tool }}"
+        NBUNKSEC="${{ inputs.nbunksec }}"
+        PRIVATE_KEY="${{ inputs.private_key }}"
+        
+        # Validate tool choice
+        case "$TOOL" in
+          "nsyte"|"nsite-cli"|"nous-cli"|"nostr-deploy-cli")
+            echo "Using tool: $TOOL"
+            ;;
+          *)
+            echo "::error::Unknown tool: $TOOL. Supported tools: nsyte, nsite-cli, nous-cli, nostr-deploy-cli"
+            exit 1
+            ;;
+        esac
+        
+        # Validate authentication
+        if [[ "$TOOL" == "nsyte" ]]; then
+          if [[ -z "$NBUNKSEC" && -z "$PRIVATE_KEY" ]]; then
+            echo "::error::nsyte requires either nbunksec or private_key"
+            exit 1
+          fi
+        else
+          if [[ -z "$PRIVATE_KEY" ]]; then
+            echo "::error::$TOOL requires private_key (does not support bunker authentication)"
+            exit 1
+          fi
+        fi
 
     - name: Ensure jq is installed
       shell: bash
@@ -112,6 +154,7 @@ runs:
 
     - name: Set nsyte Version
       id: version
+      if: ${{ inputs.tool == 'nsyte' }}
       shell: bash
       run: |
         NSYT_VERSION_INPUT="${{ inputs.version }}"
@@ -153,7 +196,8 @@ runs:
         echo "::set-output name=version_number::${VERSION_NUMBER}"
 
     - name: Download nsyte
-      id: download_nsyte 
+      id: download_nsyte
+      if: ${{ inputs.tool == 'nsyte' }}
       shell: bash
       run: |
         VERSION_TAG="${{ steps.version.outputs.version }}"
@@ -180,65 +224,136 @@ runs:
         # Using ::set-output for nsyte_path
         echo "::set-output name=nsyte_path::$(pwd)/nsyte_bin/$ASSET_FILENAME"
 
-    - name: Build nsyte command
+    - name: Build deployment command
       id: build_cmd
       shell: bash
       run: |
-        # The -i flag is critical for non-interactive CI environments
-        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"${{ inputs.directory }}\" -i --nbunksec \"${{ inputs.nbunksec }}\""
+        TOOL="${{ inputs.tool }}"
+        DIRECTORY="${{ inputs.directory }}"
         
-        # Handle relays as newline-separated list
-        if [[ -n "${{ inputs.relays }}" ]]; then
-          RELAYS_CSV=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | paste -sd,)
-          if [[ -n "$RELAYS_CSV" ]]; then
-             CMD+=" --relays \"$RELAYS_CSV\""
-          fi
-        fi
-
-        # Handle servers as newline-separated list
-        if [[ -n "${{ inputs.servers }}" ]]; then
-          SERVERS_CSV=$(echo "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | paste -sd,)
-          if [[ -n "$SERVERS_CSV" ]]; then
-            CMD+=" --servers \"$SERVERS_CSV\""
-          fi
-        fi
-
-        if [[ "${{ inputs.force }}" == "true" ]]; then CMD+=" --force"; fi
-        if [[ "${{ inputs.purge }}" == "true" ]]; then CMD+=" --purge"; fi
-        if [[ "${{ inputs.verbose }}" == "true" ]]; then CMD+=" --verbose"; fi
-        if [[ -n "${{ inputs.fallback }}" ]]; then CMD+=" --fallback \"${{ inputs.fallback }}\""; fi
-        if [[ -n "${{ inputs.concurrency }}" ]]; then CMD+=" --concurrency ${{ inputs.concurrency }}"; fi
-        if [[ "${{ inputs.publish_server_list }}" == "true" ]]; then CMD+=" --publish-server-list"; fi
-        if [[ "${{ inputs.publish_relay_list }}" == "true" ]]; then CMD+=" --publish-relay-list"; fi
-        if [[ "${{ inputs.publish_profile }}" == "true" ]]; then CMD+=" --publish-profile"; fi
+        # Build base command based on tool
+        case "$TOOL" in
+          "nsyte")
+            # Use nbunksec if provided, otherwise use private key
+            if [[ -n "${{ inputs.nbunksec }}" ]]; then
+              CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"$DIRECTORY\" -i --nbunksec \"${{ inputs.nbunksec }}\""
+            else
+              CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"$DIRECTORY\" -i --privatekey \"${{ inputs.private_key }}\""
+            fi
+            ;;
+          "nsite-cli")
+            CMD="npx nsite-cli upload \"$DIRECTORY\" --privatekey \"${{ inputs.private_key }}\""
+            ;;
+          "nous-cli")
+            # nous-cli manages its own keys, but we'll pass the private key if provided
+            if [[ -n "${{ inputs.private_key }}" ]]; then
+              # nous-cli doesn't have a direct privatekey flag, it uses configure
+              CMD="npx @soapbox.pub/nous publish \"$DIRECTORY\""
+              echo "::warning::nous-cli manages its own keys. The provided private key will not be used."
+            else
+              CMD="npx @soapbox.pub/nous publish \"$DIRECTORY\""
+            fi
+            ;;
+          "nostr-deploy-cli")
+            # First import the key, then deploy with skip-setup
+            CMD="npx nostr-deploy-cli auth -k \"${{ inputs.private_key }}\" && npx nostr-deploy-cli deploy -d \"$DIRECTORY\" --skip-setup"
+            ;;
+        esac
+        
+        # Handle tool-specific parameters
+        case "$TOOL" in
+          "nsyte")
+            # Handle relays and servers
+            if [[ -n "${{ inputs.relays }}" ]]; then
+              RELAYS_CSV=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | paste -sd,)
+              if [[ -n "$RELAYS_CSV" ]]; then CMD+=" --relays \"$RELAYS_CSV\""; fi
+            fi
+            if [[ -n "${{ inputs.servers }}" ]]; then
+              SERVERS_CSV=$(echo "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | paste -sd,)
+              if [[ -n "$SERVERS_CSV" ]]; then CMD+=" --servers \"$SERVERS_CSV\""; fi
+            fi
+            # nsyte specific flags
+            if [[ "${{ inputs.force }}" == "true" ]]; then CMD+=" --force"; fi
+            if [[ "${{ inputs.purge }}" == "true" ]]; then CMD+=" --purge"; fi
+            if [[ "${{ inputs.verbose }}" == "true" ]]; then CMD+=" --verbose"; fi
+            if [[ -n "${{ inputs.fallback }}" ]]; then CMD+=" --fallback \"${{ inputs.fallback }}\""; fi
+            if [[ -n "${{ inputs.concurrency }}" ]]; then CMD+=" --concurrency ${{ inputs.concurrency }}"; fi
+            if [[ "${{ inputs.publish_server_list }}" == "true" ]]; then CMD+=" --publish-server-list"; fi
+            if [[ "${{ inputs.publish_relay_list }}" == "true" ]]; then CMD+=" --publish-relay-list"; fi
+            if [[ "${{ inputs.publish_profile }}" == "true" ]]; then CMD+=" --publish-profile"; fi
+            ;;
+          "nsite-cli")
+            # Handle relays and servers for nsite-cli
+            if [[ -n "${{ inputs.relays }}" ]]; then
+              RELAYS_CSV=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | paste -sd,)
+              if [[ -n "$RELAYS_CSV" ]]; then CMD+=" --relays \"$RELAYS_CSV\""; fi
+            fi
+            if [[ -n "${{ inputs.servers }}" ]]; then
+              SERVERS_CSV=$(echo "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | paste -sd,)
+              if [[ -n "$SERVERS_CSV" ]]; then CMD+=" --servers \"$SERVERS_CSV\""; fi
+            fi
+            if [[ -n "${{ inputs.fallback }}" ]]; then CMD+=" --fallback \"${{ inputs.fallback }}\""; fi
+            ;;
+          "nous-cli")
+            # nous-cli has different parameter handling
+            if [[ "${{ inputs.force }}" == "true" ]]; then CMD+=" --force"; fi
+            if [[ "${{ inputs.purge }}" == "true" ]]; then CMD+=" --purge"; fi
+            if [[ "${{ inputs.verbose }}" == "true" ]]; then CMD+=" --verbose"; fi
+            ;;
+          "nostr-deploy-cli")
+            # nostr-deploy-cli uses config command for relays/servers
+            if [[ -n "${{ inputs.relays }}" ]]; then
+              RELAYS_LIST=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | tr '\n' ' ')
+              CMD="npx nostr-deploy-cli config -r $RELAYS_LIST && $CMD"
+            fi
+            if [[ -n "${{ inputs.servers }}" ]]; then
+              # nostr-deploy-cli uses -b for blossom server
+              FIRST_SERVER=$(echo "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | head -n1)
+              if [[ -n "$FIRST_SERVER" ]]; then
+                CMD="npx nostr-deploy-cli config -b \"$FIRST_SERVER\" && $CMD"
+              fi
+            fi
+            ;;
+        esac
         # Using ::set-output for command
         echo "::set-output name=command::${CMD}"
 
-    - name: Run nsyte upload
-      id: nsyte_run
+    - name: Run deployment
+      id: deployment_run
       shell: bash
       run: |
         set +e # Disable exit on error to manually handle exit codes and ensure outputs are set
-        NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
+        DEPLOYMENT_COMMAND="${{ steps.build_cmd.outputs.command }}"
+        TOOL="${{ inputs.tool }}"
         
-        # Set version used output using ::set-output
-        echo "::set-output name=nsyte_version_used::${{ steps.version.outputs.version }}"
+        # Set tool outputs using ::set-output
+        echo "::set-output name=tool_used::$TOOL"
+        if [[ "$TOOL" == "nsyte" ]]; then
+          echo "::set-output name=tool_version_used::${{ steps.version.outputs.version }}"
+          echo "::set-output name=nsyte_version_used::${{ steps.version.outputs.version }}"
+        else
+          echo "::set-output name=tool_version_used::latest"
+          echo "::set-output name=nsyte_version_used::"
+        fi
 
-        echo "Executing nsyte command (secrets masked):"
-        MASKED_COMMAND=$(echo "$NSYT_COMMAND" | \
+        echo "Executing $TOOL deployment command (secrets masked):"
+        MASKED_COMMAND=$(echo "$DEPLOYMENT_COMMAND" | \
           sed -e "s/--nbunksec \"[^\"]*\"/--nbunksec \"***MASKED***\"/" \
+              -e "s/--privatekey \"[^\"]*\"/--privatekey \"***MASKED***\"/" \
+              -e "s/-k \"[^\"]*\"/-k \"***MASKED***\"/" \
               -e "s/--relays \"[^\"]*\"/--relays \"***MASKED***\"/" \
-              -e "s/--servers \"[^\"]*\"/--servers \"***MASKED***\"/")
+              -e "s/--servers \"[^\"]*\"/--servers \"***MASKED***\"/" \
+              -e "s/-r [^ ]* [^ ]*/-r ***MASKED***/")
         echo "$MASKED_COMMAND"
         
-        eval "$NSYT_COMMAND"
-        COMMAND_EXIT_CODE=$? # Capture the exit code of the nsyte command
+        eval "$DEPLOYMENT_COMMAND"
+        COMMAND_EXIT_CODE=$? # Capture the exit code of the deployment command
 
         if [[ $COMMAND_EXIT_CODE -eq 0 ]]; then
-           echo "nsyte upload completed successfully."
+           echo "$TOOL deployment completed successfully."
            echo "::set-output name=status::success"
         else
-           echo "::error::nsyte upload command failed with exit code $COMMAND_EXIT_CODE." # Log the error
+           echo "::error::$TOOL deployment command failed with exit code $COMMAND_EXIT_CODE." # Log the error
            echo "::set-output name=status::failure"
            # This script step itself should still exit 0 to ensure outputs are processed.
            # The calling workflow (test.yml) has continue-on-error: true and will check the 'status' output.
