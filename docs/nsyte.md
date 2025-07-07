@@ -23,7 +23,7 @@
       wss://relay.damus.io
       wss://nos.lol
     servers: |
-      https://cdn.satellite.earth
+      https://cdn.hzrd149.com
       https://blossom.primal.net
 ```
 
@@ -39,7 +39,7 @@
       wss://relay.damus.io
       wss://nos.lol
     servers: |
-      https://cdn.satellite.earth
+      https://cdn.hzrd149.com
 ```
 
 ### Advanced Options
@@ -55,7 +55,7 @@
       wss://relay.damus.io
       wss://nos.lol
     servers: |
-      https://cdn.satellite.earth
+      https://cdn.hzrd149.com
     force: true  # Re-upload all files
     purge: true  # Delete remote files not present locally
     verbose: true  # Show detailed output
@@ -130,7 +130,7 @@ jobs:
           wss://nos.lol
           wss://relay.nostr.band
         servers: |
-          https://cdn.satellite.earth
+          https://cdn.hzrd149.com
           https://blossom.primal.net
         verbose: true
         fallback: /index.html  # For SPAs
@@ -149,6 +149,6 @@ jobs:
     relays: |
       wss://relay.damus.io
     servers: |
-      https://cdn.satellite.earth
+      https://cdn.hzrd149.com
     force: true  # Force re-upload all files
 ```

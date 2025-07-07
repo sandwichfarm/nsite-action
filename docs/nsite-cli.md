@@ -23,7 +23,7 @@
       wss://nos.lol
       wss://relay.primal.net
     servers: |
-      https://cdn.satellite.earth
+      https://cdn.hzrd149.com
 ```
 
 ### With Fallback for SPAs
@@ -38,7 +38,7 @@
       wss://nos.lol
       wss://relay.primal.net
     servers: |
-      https://cdn.satellite.earth
+      https://cdn.hzrd149.com
     fallback: /index.html  # For single-page applications
 ```
 
@@ -119,7 +119,7 @@ jobs:
           wss://relay.primal.net
           wss://relay.damus.io
         servers: |
-          https://cdn.satellite.earth
+          https://cdn.hzrd149.com
         fallback: /index.html  # For SPAs
 ```
 
@@ -135,7 +135,7 @@ jobs:
     relays: |
       wss://relay.damus.io
     servers: |
-      https://cdn.satellite.earth
+      https://cdn.hzrd149.com
 ```
 
 ## Security Considerations

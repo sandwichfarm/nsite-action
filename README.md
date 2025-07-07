@@ -64,7 +64,7 @@ All tools support version selection via the `version` input:
 | `version` | No | latest | Tool version (e.g., "0.5.3", "v0.5.3", "latest") |
 | `force` | No | false | Re-upload all files (nsyte/nous-cli only) |
 | `purge` | No | false | Delete remote files not present locally (nsyte/nous-cli only) |
-| `verbose` | No | false | Show detailed output (nsyte/nous-cli only) |
+| `verbose` | No | false | Show detailed output |
 | `concurrency` | No | 4 | Number of parallel uploads (nsyte only) |
 | `fallback` | No | '' | Fallback HTML path (nsyte/nsite-cli only) |
 | `publish_server_list` | No | false | Publish server list to relays (nsyte only) |
