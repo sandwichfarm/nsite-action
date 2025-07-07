@@ -1,0 +1,48 @@
+name: Test Feature Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: 'Tool to test'
+        required: true
+        default: 'nsyte'
+        type: choice
+        options:
+          - nsyte
+          - nsite-cli
+          - nous-cli
+          - nostr-deploy-cli
+
+jobs:
+  test-tool:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Create test directory
+        run: |
+          mkdir -p test-site
+          echo '<!DOCTYPE html><html><body><h1>Test Site</h1></body></html>' > test-site/index.html
+          echo '{"name": "test-site", "version": "1.0.0"}' > test-site/package.json
+          
+      - name: Test with dummy credentials
+        uses: ./  # Uses the current branch code
+        with:
+          tool: ${{ inputs.tool }}
+          nbunksec: ${{ inputs.tool == 'nsyte' && 'nbunksec1dummyvalue' || '' }}
+          private_key: ${{ inputs.tool != 'nsyte' && 'nsec1dummyprivatekey' || '' }}
+          directory: ./test-site
+          relays: |
+            wss://relay.example.com
+          servers: |
+            https://blossom.example.com
+          verbose: true
+        continue-on-error: true
+        
+      - name: Show results
+        run: |
+          echo "Test completed for ${{ inputs.tool }}"
+          echo "This was expected to fail with dummy credentials"
