@@ -138,9 +138,21 @@ jobs:
             exit 1
           fi
           
-          # NPX tools should have 'latest' as version
-          if [[ "${{ steps.test_run.outputs.tool_version_used }}" != "latest" ]]; then
-            echo "::error::Expected tool_version_used to be 'latest' for NPX tools, but got '${{ steps.test_run.outputs.tool_version_used }}'."
+          # Verify pinned versions for NPX tools
+          case "${{ matrix.tool }}" in
+            "nsite-cli")
+              expected_version="0.1.16"
+              ;;
+            "nous-cli")
+              expected_version="0.1.3"
+              ;;
+            "nostr-deploy-cli")
+              expected_version="0.7.6"
+              ;;
+          esac
+          
+          if [[ "${{ steps.test_run.outputs.tool_version_used }}" != "$expected_version" ]]; then
+            echo "::error::Expected tool_version_used to be '$expected_version' for ${{ matrix.tool }}, but got '${{ steps.test_run.outputs.tool_version_used }}'."
             exit 1
           fi
 

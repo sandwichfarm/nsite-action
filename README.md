@@ -7,14 +7,16 @@ Deploy static websites to Blossom/Nostr using nsite deployment tools. Supports m
 
 ## Supported Tools
 
-| Tool | Status | Authentication | Documentation |
-|------|--------|----------------|---------------|
-| [nsyte](https://github.com/sandwichfarm/nsyte) | **Stable** | ✅ Bunker (NIP-46)<br>✅ Private Key | [Guide](docs/nsyte.md) |
-| [nsite-cli](https://github.com/flox1an/nsite-cli) | 🧪 Experimental | ⚠️ Private Key Only | [Guide](docs/nsite-cli.md) |
-| [nous-cli](https://gitlab.com/soapbox-pub/nous-cli) | 🧪 Experimental | ⚠️ Private Key Only* | [Guide](docs/nous-cli.md) |
-| [nostr-deploy-cli](https://github.com/sepehr-safari/nostr-deploy-cli) | 🧪 Experimental | ⚠️ Private Key Only | [Guide](docs/nostr-deploy-cli.md) |
+| Tool | Status | Version | Authentication | Documentation |
+|------|--------|---------|----------------|---------------|
+| [nsyte](https://github.com/sandwichfarm/nsyte) | **Stable** | latest | ✅ Bunker (NIP-46)<br>✅ Private Key | [Guide](docs/nsyte.md) |
+| [nsite-cli](https://github.com/flox1an/nsite-cli) | 🧪 Experimental | 0.1.16 | ⚠️ Private Key Only | [Guide](docs/nsite-cli.md) |
+| [nous-cli](https://gitlab.com/soapbox-pub/nous-cli) | 🧪 Experimental | 0.1.3 | ⚠️ Private Key Only* | [Guide](docs/nous-cli.md) |
+| [nostr-deploy-cli](https://github.com/sepehr-safari/nostr-deploy-cli) | 🧪 Experimental | 0.7.6 | ⚠️ Private Key Only | [Guide](docs/nostr-deploy-cli.md) |
 
 *nous-cli manages its own keys internally
+
+**Note**: NPX tools use pinned versions to ensure stability. These versions are updated periodically as part of action maintenance.
 
 > **⚠️ Security Warning**: Tools marked "Private Key Only" require your Nostr private key to be stored as a GitHub Secret. This is less secure than bunker authentication. Consider using nsyte with bunker authentication for production deployments.
 
@@ -83,6 +85,7 @@ Deploy static websites to Blossom/Nostr using nsite deployment tools. Supports m
 - Supports multiple nsite deployment tools
 - Downloads nsyte binary automatically
 - Runs other tools via npx (no installation needed)
+- Uses pinned versions for NPX tools to ensure stability
 - Supports Linux, macOS, and Windows
 - Masks sensitive secrets in logs
 - Backward compatible (nsyte is default)

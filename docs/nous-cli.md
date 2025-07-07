@@ -70,6 +70,10 @@ nous-cli supports these parameters from the action:
 - Each GitHub runner may create a new identity (no persistence between runs)
 - Best suited for projects that don't need specific key control
 
+## Version Information
+
+The action uses a pinned version of nous-cli (currently `0.1.3`) to ensure stability and reproducibility. This version is automatically updated when the action is maintained.
+
 ## Complete Example
 
 Here's a complete GitHub Actions workflow using nous-cli:

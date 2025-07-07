@@ -71,6 +71,10 @@ nsite-cli also supports configuration via environment variables:
 
 However, when using the action, pass values via the action inputs instead.
 
+## Version Information
+
+The action uses a pinned version of nsite-cli (currently `0.1.16`) to ensure stability and reproducibility. This version is automatically updated when the action is maintained.
+
 ## Complete Example
 
 Here's a complete GitHub Actions workflow using nsite-cli:

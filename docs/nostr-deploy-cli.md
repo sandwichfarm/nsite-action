@@ -78,8 +78,7 @@ nostr-deploy-cli supports these parameters from the action:
 
 ## Version Information
 
-- The action always uses the latest version via npx
-- Current stable version: 0.7.6
+The action uses a pinned version of nostr-deploy-cli (currently `0.7.6`) to ensure stability and reproducibility. This version is automatically updated when the action is maintained.
 
 ## Complete Example
 
