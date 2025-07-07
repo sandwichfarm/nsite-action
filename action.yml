@@ -231,6 +231,44 @@ runs:
         TOOL="${{ inputs.tool }}"
         DIRECTORY="${{ inputs.directory }}"
         
+        # Display selected tool prominently
+        echo ""
+        echo "::notice title=🚀 nsite Deployment Tool::Using deployment tool: $TOOL"
+        echo ""
+        echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+        echo -e "\033[1;36m┃\033[0m                                                                              \033[1;36m┃\033[0m"
+        echo -e "\033[1;36m┃\033[0m  🚀 \033[1;33mnsite-action\033[0m Deployment                                                \033[1;36m┃\033[0m"
+        echo -e "\033[1;36m┃\033[0m                                                                              \033[1;36m┃\033[0m"
+        echo -e "\033[1;36m┃\033[0m  Selected Tool: \033[1;32m$TOOL\033[0m$(printf '%*s' $((61 - ${#TOOL})) '' | tr ' ' ' ')\033[1;36m┃\033[0m"
+        echo -e "\033[1;36m┃\033[0m                                                                              \033[1;36m┃\033[0m"
+        
+        # Add tool-specific info
+        case "$TOOL" in
+          "nsyte")
+            echo -e "\033[1;36m┃\033[0m  Type: Binary (downloaded)                                                   \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Auth: $(if [[ -n "${{ inputs.nbunksec }}" ]]; then echo "Bunker (NIP-46)"; else echo "Private Key"; fi)$(printf '%*s' $((61 - $(if [[ -n "${{ inputs.nbunksec }}" ]]; then echo 15; else echo 11; fi))) '' | tr ' ' ' ')\033[1;36m┃\033[0m"
+            ;;
+          "nsite-cli")
+            echo -e "\033[1;36m┃\033[0m  Type: NPX Package                                                           \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Version: 0.1.16                                                             \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Auth: Private Key                                                           \033[1;36m┃\033[0m"
+            ;;
+          "nous-cli")
+            echo -e "\033[1;36m┃\033[0m  Type: NPX Package (@soapbox.pub/nous)                                      \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Version: 0.1.3                                                              \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Auth: Self-managed Keys                                                     \033[1;36m┃\033[0m"
+            ;;
+          "nostr-deploy-cli")
+            echo -e "\033[1;36m┃\033[0m  Type: NPX Package                                                           \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Version: 0.7.6                                                              \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Auth: Private Key                                                           \033[1;36m┃\033[0m"
+            ;;
+        esac
+        
+        echo -e "\033[1;36m┃\033[0m                                                                              \033[1;36m┃\033[0m"
+        echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+        echo ""
+        
         # Build base command based on tool
         case "$TOOL" in
           "nsyte")
@@ -361,10 +399,25 @@ runs:
         COMMAND_EXIT_CODE=$? # Capture the exit code of the deployment command
 
         if [[ $COMMAND_EXIT_CODE -eq 0 ]]; then
-           echo "$TOOL deployment completed successfully."
+           echo ""
+           echo -e "\033[1;32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+           echo -e "\033[1;32m┃\033[0m  ✅ \033[1;32mDEPLOYMENT SUCCESSFUL\033[0m                                                    \033[1;32m┃\033[0m"
+           echo -e "\033[1;32m┃\033[0m                                                                              \033[1;32m┃\033[0m"
+           echo -e "\033[1;32m┃\033[0m  Tool: $TOOL$(printf '%*s' $((72 - ${#TOOL})) '' | tr ' ' ' ')\033[1;32m┃\033[0m"
+           echo -e "\033[1;32m┃\033[0m  Status: Success                                                             \033[1;32m┃\033[0m"
+           echo -e "\033[1;32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+           echo ""
            echo "::set-output name=status::success"
         else
-           echo "::error::$TOOL deployment command failed with exit code $COMMAND_EXIT_CODE." # Log the error
+           echo ""
+           echo -e "\033[1;31m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+           echo -e "\033[1;31m┃\033[0m  ❌ \033[1;31mDEPLOYMENT FAILED\033[0m                                                       \033[1;31m┃\033[0m"
+           echo -e "\033[1;31m┃\033[0m                                                                              \033[1;31m┃\033[0m"
+           echo -e "\033[1;31m┃\033[0m  Tool: $TOOL$(printf '%*s' $((72 - ${#TOOL})) '' | tr ' ' ' ')\033[1;31m┃\033[0m"
+           echo -e "\033[1;31m┃\033[0m  Exit Code: $COMMAND_EXIT_CODE$(printf '%*s' $((67 - ${#COMMAND_EXIT_CODE})) '' | tr ' ' ' ')\033[1;31m┃\033[0m"
+           echo -e "\033[1;31m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+           echo ""
+           echo "::error::$TOOL deployment command failed with exit code $COMMAND_EXIT_CODE."
            echo "::set-output name=status::failure"
            # This script step itself should still exit 0 to ensure outputs are processed.
            # The calling workflow (test.yml) has continue-on-error: true and will check the 'status' output.
