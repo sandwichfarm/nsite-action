@@ -20,8 +20,8 @@ jobs:
       matrix:
         # Test on common OSes. Add more if nsyte supports them and has releases.
         os: [ubuntu-latest, macos-latest, windows-latest]
-        # Use 'latest' to test the version resolution logic
-        nsyte_version: ['latest']
+        # Test default version and latest
+        nsyte_version: ['', 'latest']
 
     steps:
       - name: Checkout Repository

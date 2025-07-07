@@ -10,7 +10,7 @@ inputs:
   version:
     description: 'The version of the deployment tool to use (e.g., "0.5.3", "v0.5.3", "latest")'
     required: false
-    default: 'latest'
+    default: ''
   nbunksec:
     description: 'The nbunksec string for authentication via NIP-46 bunker (only supported by nsyte). Store this as a GitHub Secret.'
     required: false
@@ -161,6 +161,11 @@ runs:
         NSYT_VERSION_FINAL=""
         VERSION_NUMBER=""
         
+        # Use default if not specified
+        if [[ -z "$NSYT_VERSION_INPUT" ]]; then
+          NSYT_VERSION_INPUT="v0.12.3"
+        fi
+        
         # Handle version input - ensure "v" prefix for nsyte
         if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
           echo "Input version is 'latest', resolving..."
@@ -278,6 +283,24 @@ runs:
         
         # Get version for tool and sanitize based on tool requirements
         TOOL_VERSION="${{ inputs.version }}"
+        
+        # Set default versions if not specified
+        if [[ -z "$TOOL_VERSION" ]]; then
+          case "$TOOL" in
+            "nsyte")
+              TOOL_VERSION="v0.12.3"
+              ;;
+            "nsite-cli")
+              TOOL_VERSION="0.1.16"
+              ;;
+            "nous-cli")
+              TOOL_VERSION="0.1.3"
+              ;;
+            "nostr-deploy-cli")
+              TOOL_VERSION="0.7.6"
+              ;;
+          esac
+        fi
         
         # For NPX tools, strip "v" prefix if present (NPM uses bare version numbers)
         if [[ "$TOOL" != "nsyte" && "$TOOL_VERSION" != "latest" ]]; then
@@ -401,10 +424,27 @@ runs:
         else
           # For NPX tools, output the version that was actually used
           ACTUAL_VERSION="${{ inputs.version }}"
-          # Strip v prefix for NPX tools to match what was used
-          if [[ "$ACTUAL_VERSION" != "latest" ]]; then
-            ACTUAL_VERSION="${ACTUAL_VERSION#v}"
+          
+          # Use default if not specified
+          if [[ -z "$ACTUAL_VERSION" ]]; then
+            case "$TOOL" in
+              "nsite-cli")
+                ACTUAL_VERSION="0.1.16"
+                ;;
+              "nous-cli")
+                ACTUAL_VERSION="0.1.3"
+                ;;
+              "nostr-deploy-cli")
+                ACTUAL_VERSION="0.7.6"
+                ;;
+            esac
+          else
+            # Strip v prefix for NPX tools to match what was used
+            if [[ "$ACTUAL_VERSION" != "latest" ]]; then
+              ACTUAL_VERSION="${ACTUAL_VERSION#v}"
+            fi
           fi
+          
           echo "::set-output name=tool_version_used::$ACTUAL_VERSION"
           echo "::set-output name=nsyte_version_used::"
         fi
