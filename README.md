@@ -5,9 +5,11 @@
 
 Deploy static websites to Blossom/Nostr in a Github Actions Workflow, powered by [nsyte](https://github.com/sandwichfarm/nsyte).
 
-## Quick Start
+## Dependencies
+- Bunker Signer (NIP-46) for establishing a handshake
+- [nsyte](http://github.com/sandwichfarm/nsyte) - For generating an `nbunksec` bunker secret key.
 
-_You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte) to generate an **nbunksec**_
+## Quick Start
 
 1. **Setup nsyte locally** (one-time):
    ```bash
@@ -61,8 +63,15 @@ _You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte)
 - Masks sensitive secrets in logs
 - Authenticates via NIP-46 bunker
 
+## `nbunksec` Revocation
+
+- Revocation is handled by your Bunker Signer of choice (NIP-46).
+- If you leak your `nbunksec` you should rotate your keys.
+- keys should be rotated periodically (revoke old `nbunksec`, establish a new connection and update secrets)
+
 ## Security Notes
 
+- **DO NOT** store `nbunksec` as an environment variable or commit to source code
 - Store `nbunksec` as a GitHub Secret
 - Configure bunker with minimal permissions
 - Consider pinning to specific `nsyte_version`
