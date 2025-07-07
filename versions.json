@@ -1,0 +1,21 @@
+{
+  "tools": {
+    "nsyte": {
+      "version": "v0.12.3",
+      "type": "binary"
+    },
+    "nsite-cli": {
+      "version": "0.1.16",
+      "type": "npx"
+    },
+    "nous-cli": {
+      "version": "0.1.3",
+      "type": "npx",
+      "package": "@soapbox.pub/nous"
+    },
+    "nostr-deploy-cli": {
+      "version": "0.7.6",
+      "type": "npx"
+    }
+  }
+}

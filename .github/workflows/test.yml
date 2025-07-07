@@ -138,16 +138,17 @@ jobs:
             exit 1
           fi
           
-          # Verify pinned versions for NPX tools
+          # Read expected versions from versions.json
+          VERSIONS_FILE="${{ github.workspace }}/versions.json"
           case "${{ matrix.tool }}" in
             "nsite-cli")
-              expected_version="0.1.16"
+              expected_version=$(jq -r '.tools."nsite-cli".version' "$VERSIONS_FILE")
               ;;
             "nous-cli")
-              expected_version="0.1.3"
+              expected_version=$(jq -r '.tools."nous-cli".version' "$VERSIONS_FILE")
               ;;
             "nostr-deploy-cli")
-              expected_version="0.7.6"
+              expected_version=$(jq -r '.tools."nostr-deploy-cli".version' "$VERSIONS_FILE")
               ;;
           esac
           
