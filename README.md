@@ -26,10 +26,10 @@ _You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte)
        nbunksec: ${{ secrets.NBUNKSEC }}
        directory: './dist'  # Your built website directory
        relays: |
-         wss://relay.damus.io
-         wss://relay.snort.social
+         wss://relay.nsite.lol
        servers: |
-         wss://some.blossom.server.com
+         wss://cdn.hzrd149.com
+         wss://cdn.sovbit.host
    ```
 
 ## Inputs
@@ -71,6 +71,7 @@ _You will need to download/install [nsyte](http://github.com/sandwichfarm/nsyte)
 ## Resources
 - [awesome-nsite](https://github.com/nostrver-se/awesome-nsite)
 - [nsite.run](https://nsite.run)
+- [blossomservers.com](https://blossomservers.com)
 
 ## Development
 
