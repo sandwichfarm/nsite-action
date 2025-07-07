@@ -72,7 +72,10 @@ nous-cli supports these parameters from the action:
 
 ## Version Information
 
-The action uses a pinned version of nous-cli (currently `0.1.3`) to ensure stability and reproducibility. This version is automatically updated when the action is maintained.
+Examples:
+- `version: latest` - Use the most recent version
+- `version: 0.1.3` - Pin to specific version
+- `version: v0.1.3` - Also works
 
 ## Complete Example
 

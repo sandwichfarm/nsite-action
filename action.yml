@@ -8,7 +8,7 @@ inputs:
     required: false
     default: 'nsyte'
   version:
-    description: 'The version of the deployment tool to use (e.g., "v0.5.3", "latest"). Only applies to binary tools (nsyte).'
+    description: 'The version of the deployment tool to use (e.g., "0.5.3", "v0.5.3", "latest")'
     required: false
     default: 'latest'
   nbunksec:
@@ -160,6 +160,8 @@ runs:
         NSYT_VERSION_INPUT="${{ inputs.version }}"
         NSYT_VERSION_FINAL=""
         VERSION_NUMBER=""
+        
+        # Handle version input - ensure "v" prefix for nsyte
         if [[ "$NSYT_VERSION_INPUT" == "latest" ]]; then
           echo "Input version is 'latest', resolving..."
           LATEST_TAG=""
@@ -185,7 +187,12 @@ runs:
           NSYT_VERSION_FINAL="$LATEST_TAG"
           echo "Resolved latest version: $NSYT_VERSION_FINAL"
         else
-          NSYT_VERSION_FINAL="${{ inputs.version }}"
+          # Ensure version has "v" prefix for nsyte
+          if [[ "$NSYT_VERSION_INPUT" =~ ^v ]]; then
+            NSYT_VERSION_FINAL="$NSYT_VERSION_INPUT"
+          else
+            NSYT_VERSION_FINAL="v$NSYT_VERSION_INPUT"
+          fi
           echo "Using specified version: $NSYT_VERSION_FINAL"
         fi
         # Extract version number for asset filename
@@ -250,17 +257,17 @@ runs:
             ;;
           "nsite-cli")
             echo -e "\033[1;36m┃\033[0m  Type: NPX Package                                                           \033[1;36m┃\033[0m"
-            echo -e "\033[1;36m┃\033[0m  Version: 0.1.16                                                             \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Version: $TOOL_VERSION$(printf '%*s' $((69 - ${#TOOL_VERSION})) '' | tr ' ' ' ')\033[1;36m┃\033[0m"
             echo -e "\033[1;36m┃\033[0m  Auth: Private Key                                                           \033[1;36m┃\033[0m"
             ;;
           "nous-cli")
             echo -e "\033[1;36m┃\033[0m  Type: NPX Package (@soapbox.pub/nous)                                      \033[1;36m┃\033[0m"
-            echo -e "\033[1;36m┃\033[0m  Version: 0.1.3                                                              \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Version: $TOOL_VERSION$(printf '%*s' $((69 - ${#TOOL_VERSION})) '' | tr ' ' ' ')\033[1;36m┃\033[0m"
             echo -e "\033[1;36m┃\033[0m  Auth: Self-managed Keys                                                     \033[1;36m┃\033[0m"
             ;;
           "nostr-deploy-cli")
             echo -e "\033[1;36m┃\033[0m  Type: NPX Package                                                           \033[1;36m┃\033[0m"
-            echo -e "\033[1;36m┃\033[0m  Version: 0.7.6                                                              \033[1;36m┃\033[0m"
+            echo -e "\033[1;36m┃\033[0m  Version: $TOOL_VERSION$(printf '%*s' $((69 - ${#TOOL_VERSION})) '' | tr ' ' ' ')\033[1;36m┃\033[0m"
             echo -e "\033[1;36m┃\033[0m  Auth: Private Key                                                           \033[1;36m┃\033[0m"
             ;;
         esac
@@ -268,6 +275,14 @@ runs:
         echo -e "\033[1;36m┃\033[0m                                                                              \033[1;36m┃\033[0m"
         echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
         echo ""
+        
+        # Get version for tool and sanitize based on tool requirements
+        TOOL_VERSION="${{ inputs.version }}"
+        
+        # For NPX tools, strip "v" prefix if present (NPM uses bare version numbers)
+        if [[ "$TOOL" != "nsyte" && "$TOOL_VERSION" != "latest" ]]; then
+          TOOL_VERSION="${TOOL_VERSION#v}"
+        fi
         
         # Build base command based on tool
         case "$TOOL" in
@@ -280,21 +295,35 @@ runs:
             fi
             ;;
           "nsite-cli")
-            CMD="npx nsite-cli@0.1.16 upload \"$DIRECTORY\" --privatekey \"${{ inputs.private_key }}\""
+            if [[ "$TOOL_VERSION" == "latest" ]]; then
+              CMD="npx nsite-cli upload \"$DIRECTORY\" --privatekey \"${{ inputs.private_key }}\""
+            else
+              CMD="npx nsite-cli@$TOOL_VERSION upload \"$DIRECTORY\" --privatekey \"${{ inputs.private_key }}\""
+            fi
             ;;
           "nous-cli")
             # nous-cli manages its own keys, but we'll pass the private key if provided
+            if [[ "$TOOL_VERSION" == "latest" ]]; then
+              NPX_CMD="npx @soapbox.pub/nous"
+            else
+              NPX_CMD="npx @soapbox.pub/nous@$TOOL_VERSION"
+            fi
             if [[ -n "${{ inputs.private_key }}" ]]; then
               # nous-cli doesn't have a direct privatekey flag, it uses configure
-              CMD="npx @soapbox.pub/nous@0.1.3 publish \"$DIRECTORY\""
+              CMD="$NPX_CMD publish \"$DIRECTORY\""
               echo "::warning::nous-cli manages its own keys. The provided private key will not be used."
             else
-              CMD="npx @soapbox.pub/nous@0.1.3 publish \"$DIRECTORY\""
+              CMD="$NPX_CMD publish \"$DIRECTORY\""
             fi
             ;;
           "nostr-deploy-cli")
             # First import the key, then deploy with skip-setup
-            CMD="npx nostr-deploy-cli@0.7.6 auth -k \"${{ inputs.private_key }}\" && npx nostr-deploy-cli@0.7.6 deploy -d \"$DIRECTORY\" --skip-setup"
+            if [[ "$TOOL_VERSION" == "latest" ]]; then
+              NPX_CMD="npx nostr-deploy-cli"
+            else
+              NPX_CMD="npx nostr-deploy-cli@$TOOL_VERSION"
+            fi
+            CMD="$NPX_CMD auth -k \"${{ inputs.private_key }}\" && $NPX_CMD deploy -d \"$DIRECTORY\" --skip-setup"
             ;;
         esac
         
@@ -342,13 +371,13 @@ runs:
             # nostr-deploy-cli uses config command for relays/servers
             if [[ -n "${{ inputs.relays }}" ]]; then
               RELAYS_LIST=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | tr '\n' ' ')
-              CMD="npx nostr-deploy-cli@0.7.6 config -r $RELAYS_LIST && $CMD"
+              CMD="$NPX_CMD config -r $RELAYS_LIST && $CMD"
             fi
             if [[ -n "${{ inputs.servers }}" ]]; then
               # nostr-deploy-cli uses -b for blossom server
               FIRST_SERVER=$(echo "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | head -n1)
               if [[ -n "$FIRST_SERVER" ]]; then
-                CMD="npx nostr-deploy-cli@0.7.6 config -b \"$FIRST_SERVER\" && $CMD"
+                CMD="$NPX_CMD config -b \"$FIRST_SERVER\" && $CMD"
               fi
             fi
             ;;
@@ -370,18 +399,13 @@ runs:
           echo "::set-output name=tool_version_used::${{ steps.version.outputs.version }}"
           echo "::set-output name=nsyte_version_used::${{ steps.version.outputs.version }}"
         else
-          # Set pinned versions for NPX tools
-          case "$TOOL" in
-            "nsite-cli")
-              echo "::set-output name=tool_version_used::0.1.16"
-              ;;
-            "nous-cli")
-              echo "::set-output name=tool_version_used::0.1.3"
-              ;;
-            "nostr-deploy-cli")
-              echo "::set-output name=tool_version_used::0.7.6"
-              ;;
-          esac
+          # For NPX tools, output the version that was actually used
+          ACTUAL_VERSION="${{ inputs.version }}"
+          # Strip v prefix for NPX tools to match what was used
+          if [[ "$ACTUAL_VERSION" != "latest" ]]; then
+            ACTUAL_VERSION="${ACTUAL_VERSION#v}"
+          fi
+          echo "::set-output name=tool_version_used::$ACTUAL_VERSION"
           echo "::set-output name=nsyte_version_used::"
         fi
 

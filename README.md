@@ -7,16 +7,20 @@ Deploy static websites to Blossom/Nostr using nsite deployment tools. Supports m
 
 ## Supported Tools
 
-| Tool | Status | Version | Authentication | Documentation |
-|------|--------|---------|----------------|---------------|
-| [nsyte](https://github.com/sandwichfarm/nsyte) | **Stable** | latest | ✅ Bunker (NIP-46)<br>✅ Private Key | [Guide](docs/nsyte.md) |
-| [nsite-cli](https://github.com/flox1an/nsite-cli) | 🧪 Experimental | 0.1.16 | ⚠️ Private Key Only | [Guide](docs/nsite-cli.md) |
-| [nous-cli](https://gitlab.com/soapbox-pub/nous-cli) | 🧪 Experimental | 0.1.3 | ⚠️ Private Key Only* | [Guide](docs/nous-cli.md) |
-| [nostr-deploy-cli](https://github.com/sepehr-safari/nostr-deploy-cli) | 🧪 Experimental | 0.7.6 | ⚠️ Private Key Only | [Guide](docs/nostr-deploy-cli.md) |
+| Tool | Status | Authentication | Documentation |
+|------|--------|----------------|---------------|
+| [nsyte](https://github.com/sandwichfarm/nsyte) | **Stable** | ✅ Bunker (NIP-46)<br>✅ Private Key | [Guide](docs/nsyte.md) |
+| [nsite-cli](https://github.com/flox1an/nsite-cli) | 🧪 Experimental | ⚠️ Private Key Only | [Guide](docs/nsite-cli.md) |
+| [nous-cli](https://gitlab.com/soapbox-pub/nous-cli) | 🧪 Experimental | ⚠️ Private Key Only* | [Guide](docs/nous-cli.md) |
+| [nostr-deploy-cli](https://github.com/sepehr-safari/nostr-deploy-cli) | 🧪 Experimental | ⚠️ Private Key Only | [Guide](docs/nostr-deploy-cli.md) |
 
 *nous-cli manages its own keys internally
 
-**Note**: NPX tools use pinned versions to ensure stability. These versions are updated periodically as part of action maintenance.
+### Version Support
+
+All tools support version selection via the `version` input:
+- Use `version: latest` for the most recent version (default)
+- Use `version: 0.5.3` or `version: v0.5.3` to pin to a specific version
 
 > **⚠️ Security Warning**: Tools marked "Private Key Only" require your Nostr private key to be stored as a GitHub Secret. This is less secure than bunker authentication. Consider using nsyte with bunker authentication for production deployments.
 
@@ -57,7 +61,7 @@ Deploy static websites to Blossom/Nostr using nsite deployment tools. Supports m
 | `directory` | Yes | - | Directory containing website files |
 | `relays` | Yes | - | Newline separated relay URIs |
 | `servers` | Yes | - | Newline separated server URIs |
-| `version` | No | latest | Tool version (only applies to nsyte) |
+| `version` | No | latest | Tool version (e.g., "0.5.3", "v0.5.3", "latest") |
 | `force` | No | false | Re-upload all files (nsyte/nous-cli only) |
 | `purge` | No | false | Delete remote files not present locally (nsyte/nous-cli only) |
 | `verbose` | No | false | Show detailed output (nsyte/nous-cli only) |

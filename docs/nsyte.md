@@ -75,9 +75,10 @@ nsyte supports two authentication methods:
 
 ## Version Management
 
-- Use `version: latest` (default) to always use the latest release
-- Specify a version like `version: v0.5.3` to pin to a specific release
-- Version tags must match releases from [nsyte releases](https://github.com/sandwichfarm/nsyte/releases)
+Examples:
+- `version: latest` - Always use the latest release (default)
+- `version: v0.5.3` - Pin to specific version
+- `version: 0.5.3` - Also works
 
 ## Platform Support
 
