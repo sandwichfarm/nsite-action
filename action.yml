@@ -1,4 +1,4 @@
-name: 'nsite Action'
+name: 'nsyte action'
 description: 'Deploys static website files to Blossom/Nostr using the nsyte CLI.'
 author: 'nsite-action Developers'
 
@@ -11,32 +11,32 @@ inputs:
     description: 'The nbunksec string for authentication via NIP-46 bunker. Store this as a GitHub Secret.'
     required: true
   directory:
-    description: 'The directory containing the static files to upload.'
+    description: 'The directory containing the static files to deploy.'
     required: true
   relays:
     description: 'YAML array of Nostr relay WebSocket URIs to publish the site event to. Example: ["wss://relay1.example.com", "wss://relay2.example.com"]'
     required: true
   servers:
-    description: 'YAML array of Blossom server WebSocket URIs to upload files to. Example: ["wss://server1.example.com", "wss://server2.example.com"]'
+    description: 'YAML array of Blossom server WebSocket URIs to deploy files to. Example: ["wss://server1.example.com", "wss://server2.example.com"]'
     required: true
   force:
-    description: 'Corresponds to the --force flag in nsyte upload. Re-upload all files.'
+    description: 'Corresponds to the --force flag in nsyte deploy. Re-deploy all files.'
     required: false
     default: 'false'
   purge:
-    description: 'Corresponds to the --purge flag in nsyte upload. Delete remote files not present locally.'
+    description: 'Corresponds to the --purge flag in nsyte deploy. Delete remote files not present locally.'
     required: false
     default: 'false'
   verbose:
-    description: 'Corresponds to the --verbose flag in nsyte upload. Show detailed output.'
+    description: 'Corresponds to the --verbose flag in nsyte deploy. Show detailed output.'
     required: false
     default: 'false'
   concurrency:
-    description: 'Corresponds to the --concurrency flag in nsyte upload. Number of parallel uploads.'
+    description: 'Corresponds to the --concurrency flag in nsyte deploy. Number of parallel deploys.'
     required: false
     default: '4'
   fallback:
-    description: 'Corresponds to the --fallback flag in nsyte upload. Path to the fallback HTML file (e.g., /index.html for SPAs).'
+    description: 'Corresponds to the --fallback flag in nsyte deploy. Path to the fallback HTML file (e.g., /index.html for SPAs).'
     required: false
     default: ''
   publish_server_list: 
@@ -54,7 +54,7 @@ inputs:
 
 outputs:
   status:
-    description: 'Status of the upload operation (e.g., "success").'
+    description: 'Status of the deploy operation (e.g., "success").'
   nsyte_version_used:
     description: 'The actual version of nsyte that was downloaded and used.'
 
@@ -149,8 +149,10 @@ runs:
         if [[ "$NSYT_VERSION_FINAL" =~ ^v(.+)$ ]]; then VERSION_NUMBER="${BASH_REMATCH[1]}"; else VERSION_NUMBER="$NSYT_VERSION_FINAL"; fi
         echo "Using nsyte tag: $NSYT_VERSION_FINAL (version number for asset: $VERSION_NUMBER)"
         # Using ::set-output for version outputs as GITHUB_OUTPUT can be finicky in composite actions
-        echo "::set-output name=version::${NSYT_VERSION_FINAL}"
-        echo "::set-output name=version_number::${VERSION_NUMBER}"
+        #echo "::set-output name=version::${NSYT_VERSION_FINAL}"
+        #echo "::set-output name=version_number::${VERSION_NUMBER}"
+        echo "version=${NSYT_VERSION_FINAL}" >> $GITHUB_OUTPUT
+        echo "version_number=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
 
     - name: Download nsyte
       id: download_nsyte 
@@ -178,14 +180,16 @@ runs:
         fi
         chmod +x "nsyte_bin/$ASSET_FILENAME"
         # Using ::set-output for nsyte_path
-        echo "::set-output name=nsyte_path::$(pwd)/nsyte_bin/$ASSET_FILENAME"
+        #echo "::set-output name=nsyte_path::$(pwd)/nsyte_bin/$ASSET_FILENAME"
+        echo "nsyte_path=$(pwd)/nsyte_bin/$ASSET_FILENAME" >> $GITHUB_OUTPUT
+
 
     - name: Build nsyte command
       id: build_cmd
       shell: bash
       run: |
         # The -i flag is critical for non-interactive CI environments
-        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" upload \"${{ inputs.directory }}\" -i --nbunksec \"${{ inputs.nbunksec }}\""
+        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --nbunksec \"${{ inputs.nbunksec }}\""
         
         # Handle relays as newline-separated list
         if [[ -n "${{ inputs.relays }}" ]]; then
@@ -212,9 +216,11 @@ runs:
         if [[ "${{ inputs.publish_relay_list }}" == "true" ]]; then CMD+=" --publish-relay-list"; fi
         if [[ "${{ inputs.publish_profile }}" == "true" ]]; then CMD+=" --publish-profile"; fi
         # Using ::set-output for command
-        echo "::set-output name=command::${CMD}"
+        #echo "::set-output name=command::${CMD}"
+        echo "command=${CMD}" >> $GITHUB_OUTPUT
 
-    - name: Run nsyte upload
+
+    - name: Run nsyte deploy
       id: nsyte_run
       shell: bash
       run: |
@@ -222,8 +228,9 @@ runs:
         NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
         
         # Set version used output using ::set-output
-        echo "::set-output name=nsyte_version_used::${{ steps.version.outputs.version }}"
-
+        #echo "::set-output name=nsyte_version_used::${{ steps.version.outputs.version }}"
+        echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+        
         echo "Executing nsyte command (secrets masked):"
         MASKED_COMMAND=$(echo "$NSYT_COMMAND" | \
           sed -e "s/--nbunksec \"[^\"]*\"/--nbunksec \"***MASKED***\"/" \
@@ -233,13 +240,17 @@ runs:
         
         eval "$NSYT_COMMAND"
         COMMAND_EXIT_CODE=$? # Capture the exit code of the nsyte command
+        echo COMMAND_EXIT_CODE=$?
 
         if [[ $COMMAND_EXIT_CODE -eq 0 ]]; then
-           echo "nsyte upload completed successfully."
-           echo "::set-output name=status::success"
+           echo "nsyte deploy completed successfully."
+           #echo "::set-output name=status::success"
+           echo "status=success" >> $GITHUB_OUTPUT
+
         else
-           echo "::error::nsyte upload command failed with exit code $COMMAND_EXIT_CODE." # Log the error
-           echo "::set-output name=status::failure"
+           echo "::error::nsyte deploy command failed with exit code $COMMAND_EXIT_CODE." # Log the error
+           #echo "::set-output name=status::failure"
+           echo "status=failure" >> $GITHUB_OUTPUT
            # This script step itself should still exit 0 to ensure outputs are processed.
            # The calling workflow (test.yml) has continue-on-error: true and will check the 'status' output.
         fi

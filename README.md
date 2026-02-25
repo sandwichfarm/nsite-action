@@ -30,8 +30,8 @@ Deploy static websites to Blossom/Nostr in a Github Actions Workflow, powered by
        relays: |
          wss://relay.nsite.lol
        servers: |
-         wss://cdn.hzrd149.com
-         wss://cdn.sovbit.host
+         https://cdn.hzrd149.com
+         https://cdn.sovbit.host
    ```
 
 ## Inputs
@@ -48,6 +48,9 @@ Deploy static websites to Blossom/Nostr in a Github Actions Workflow, powered by
 | `verbose` | No | false | Show detailed output |
 | `concurrency` | No | 4 | Number of parallel uploads |
 | `fallback` | No | '' | Fallback HTML path (e.g., "/index.html") |
+| `publish_server_list` | No | false | use this for new/fresh npubs without blossom servers configured |
+| `publish_relay_list` | No | false | use this for new/fresh npubs without relays configured |
+| `publish_profile` | No | false | use this for new/fresh npubs without a profile configured |
 
 ## Outputs
 
