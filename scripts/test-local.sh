@@ -60,7 +60,7 @@ TEST_SERVERS="wss://blossom.example.com"
 
 echo
 echo "Would construct command like:"
-echo "$FAKE_BINARY_NAME upload './test-local-dir' --nbunksec 'nbunksec...' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' [OTHER_FLAGS]"
+echo "$FAKE_BINARY_NAME upload './test-local-dir' --sec 'nbunksec...' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' [OTHER_FLAGS]"
 
 echo
 echo "=== Test Complete ==="
