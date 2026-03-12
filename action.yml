@@ -189,7 +189,7 @@ runs:
       shell: bash
       run: |
         # The -i flag is critical for non-interactive CI environments
-        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --nbunksec \"${{ inputs.nbunksec }}\""
+        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --sec \"${{ inputs.nbunksec }}\""
         
         # Handle relays as newline-separated list
         if [[ -n "${{ inputs.relays }}" ]]; then
@@ -233,7 +233,7 @@ runs:
         
         echo "Executing nsyte command (secrets masked):"
         MASKED_COMMAND=$(echo "$NSYT_COMMAND" | \
-          sed -e "s/--nbunksec \"[^\"]*\"/--nbunksec \"***MASKED***\"/" \
+          sed -e "s/--sec \"[^\"]*\"/--sec \"***MASKED***\"/" \
               -e "s/--relays \"[^\"]*\"/--relays \"***MASKED***\"/" \
               -e "s/--servers \"[^\"]*\"/--servers \"***MASKED***\"/")
         echo "$MASKED_COMMAND"
