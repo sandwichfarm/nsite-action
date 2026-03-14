@@ -33,7 +33,7 @@ jobs:
           mkdir test-dist
           echo "<html>Test index.html</html>" > test-dist/index.html
           echo "<html>Test fallback.html</html>" > test-dist/fallback.html 
-          echo "DUMMY_NBUNKSEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
+          echo "DUMMY_SEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
 
       - name: Run nsite-action (Local Path)
         uses: ./ 
@@ -41,7 +41,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         with:
-          nbunksec: ${{ env.DUMMY_NBUNKSEC }}
+          sec: ${{ env.DUMMY_SEC }}
           directory: './test-dist'
           nsyte_version: ${{ matrix.nsyte_version }}
           relays: |
@@ -50,7 +50,6 @@ jobs:
           servers: |
             wss://blossom.example.com
           force: true
-          purge: false
           verbose: true
           fallback: '/fallback.html'
           concurrency: 2

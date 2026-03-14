@@ -7,24 +7,33 @@ inputs:
     description: 'The version of the nsyte CLI to use (e.g., "v0.5.3", "latest"). Needs to match a tag in github.com/sandwichfarm/nsyte/releases'
     required: false
     default: 'latest'
+  sec:
+    description: 'The signing secret for authentication. Accepts nsec, nbunksec, bunker:// URL, or hex. Store as a GitHub Secret.'
+    required: false
   nbunksec:
-    description: 'The nbunksec string for authentication via NIP-46 bunker. Store this as a GitHub Secret.'
-    required: true
+    description: 'DEPRECATED: Use "sec" instead. The nbunksec string for authentication via NIP-46 bunker. Store this as a GitHub Secret.'
+    required: false
   directory:
     description: 'The directory containing the static files to deploy.'
     required: true
   relays:
-    description: 'YAML array of Nostr relay WebSocket URIs to publish the site event to. Example: ["wss://relay1.example.com", "wss://relay2.example.com"]'
-    required: true
+    description: 'Newline-separated list of Nostr relay WebSocket URIs to publish the site event to.'
+    required: false
+    default: ''
   servers:
-    description: 'YAML array of Blossom server WebSocket URIs to deploy files to. Example: ["wss://server1.example.com", "wss://server2.example.com"]'
-    required: true
+    description: 'Newline-separated list of Blossom server URIs to deploy files to.'
+    required: false
+    default: ''
   force:
     description: 'Corresponds to the --force flag in nsyte deploy. Re-deploy all files.'
     required: false
     default: 'false'
   purge:
-    description: 'Corresponds to the --purge flag in nsyte deploy. Delete remote files not present locally.'
+    description: 'DEPRECATED: No longer supported in nsyte. Use the nsyte "delete" or "undeploy" commands instead.'
+    required: false
+    default: 'false'
+  sync:
+    description: 'Corresponds to the --sync flag in nsyte deploy. Check all servers and upload missing blobs.'
     required: false
     default: 'false'
   verbose:
@@ -47,10 +56,26 @@ inputs:
     description: 'true/false. If true, the relay list will be published to Blossom servers.'
     required: false
     default: 'false'
-  publish_profile: 
+  publish_profile:
     description: 'true/false. If true, the profile will be published to relays.'
     required: false
     default: 'false'
+  use_fallback_relays:
+    description: 'If true, include default nsyte relays in addition to configured ones.'
+    required: false
+    default: 'false'
+  use_fallback_servers:
+    description: 'If true, include default nsyte blossom servers in addition to configured ones.'
+    required: false
+    default: 'false'
+  publish_app_handler:
+    description: 'If true, publish NIP-89 app handler announcement (Kind 31990).'
+    required: false
+    default: 'false'
+  handler_kinds:
+    description: 'Comma-separated event kinds the nsite can handle. Only used when publish_app_handler is true.'
+    required: false
+    default: ''
 
 outputs:
   status:
@@ -189,8 +214,10 @@ runs:
       shell: bash
       run: |
         # The -i flag is critical for non-interactive CI environments
-        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --sec \"${{ inputs.nbunksec }}\""
-        
+        # Use 'sec' input if provided, fall back to deprecated 'nbunksec'
+        SEC_VALUE="${{ inputs.sec || inputs.nbunksec }}"
+        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --sec \"$SEC_VALUE\""
+
         # Handle relays as newline-separated list
         if [[ -n "${{ inputs.relays }}" ]]; then
           RELAYS_CSV=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | paste -sd,)
@@ -208,15 +235,17 @@ runs:
         fi
 
         if [[ "${{ inputs.force }}" == "true" ]]; then CMD+=" --force"; fi
-        if [[ "${{ inputs.purge }}" == "true" ]]; then CMD+=" --purge"; fi
+        if [[ "${{ inputs.sync }}" == "true" ]]; then CMD+=" --sync"; fi
         if [[ "${{ inputs.verbose }}" == "true" ]]; then CMD+=" --verbose"; fi
         if [[ -n "${{ inputs.fallback }}" ]]; then CMD+=" --fallback \"${{ inputs.fallback }}\""; fi
         if [[ -n "${{ inputs.concurrency }}" ]]; then CMD+=" --concurrency ${{ inputs.concurrency }}"; fi
         if [[ "${{ inputs.publish_server_list }}" == "true" ]]; then CMD+=" --publish-server-list"; fi
         if [[ "${{ inputs.publish_relay_list }}" == "true" ]]; then CMD+=" --publish-relay-list"; fi
         if [[ "${{ inputs.publish_profile }}" == "true" ]]; then CMD+=" --publish-profile"; fi
-        # Using ::set-output for command
-        #echo "::set-output name=command::${CMD}"
+        if [[ "${{ inputs.use_fallback_relays }}" == "true" ]]; then CMD+=" --use-fallback-relays"; fi
+        if [[ "${{ inputs.use_fallback_servers }}" == "true" ]]; then CMD+=" --use-fallback-servers"; fi
+        if [[ "${{ inputs.publish_app_handler }}" == "true" ]]; then CMD+=" --publish-app-handler"; fi
+        if [[ -n "${{ inputs.handler_kinds }}" ]]; then CMD+=" --handler-kinds \"${{ inputs.handler_kinds }}\""; fi
         echo "command=${CMD}" >> $GITHUB_OUTPUT
 
 

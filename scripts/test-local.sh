@@ -60,12 +60,12 @@ TEST_SERVERS="wss://blossom.example.com"
 
 echo
 echo "Would construct command like:"
-echo "$FAKE_BINARY_NAME upload './test-local-dir' --sec 'nbunksec...' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' [OTHER_FLAGS]"
+echo "$FAKE_BINARY_NAME deploy './test-local-dir' --sec '<nsec|nbunksec|bunker://|hex>' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' [OTHER_FLAGS]"
 
 echo
 echo "=== Test Complete ==="
 echo "To run the actual action, you'd need to:"
 echo "1. Push this repo to GitHub"
-echo "2. Set up appropriate secrets (NBUNKSEC)"
+echo "2. Set up appropriate secrets (SEC - accepts nsec, nbunksec, bunker://, or hex)"
 echo "3. Configure relays and servers in your workflow"
 echo "4. Run the workflow in Actions tab or use 'act' locally" 
