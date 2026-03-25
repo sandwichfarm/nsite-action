@@ -250,7 +250,7 @@ runs:
 
         # Handle relays as newline-separated list
         if [[ -n "${{ inputs.relays }}" ]]; then
-          RELAYS_CSV=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | paste -sd,)
+          RELAYS_CSV=$(printf '%s' "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | tr '\n' ',' | sed 's/,$//')
           if [[ -n "$RELAYS_CSV" ]]; then
              CMD+=" --relays \"$RELAYS_CSV\""
           fi
@@ -258,7 +258,7 @@ runs:
 
         # Handle servers as newline-separated list
         if [[ -n "${{ inputs.servers }}" ]]; then
-          SERVERS_CSV=$(echo "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | paste -sd,)
+          SERVERS_CSV=$(printf '%s' "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | tr '\n' ',' | sed 's/,$//')
           if [[ -n "$SERVERS_CSV" ]]; then
             CMD+=" --servers \"$SERVERS_CSV\""
           fi
