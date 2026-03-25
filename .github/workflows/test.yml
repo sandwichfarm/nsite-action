@@ -21,7 +21,7 @@ jobs:
         # Test on common OSes. Add more if nsyte supports them and has releases.
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Use 'latest' to test the version resolution logic
-        nsyte_version: ['latest']
+        version: ['latest']
 
     steps:
       - name: Checkout Repository
@@ -43,7 +43,7 @@ jobs:
         with:
           sec: ${{ env.DUMMY_SEC }}
           directory: './test-dist'
-          nsyte_version: ${{ matrix.nsyte_version }}
+          version: ${{ matrix.version }}
           relays: |
             wss://nostr.example.com
             wss://relay.example.org
@@ -77,9 +77,9 @@ jobs:
             echo "Status output correctly set to 'failure'."
           fi
 
-          # Check if the version used is the expected latest (v0.5.3) when input is 'latest'
-          if [[ "${{ inputs.nsyte_version }}" == "latest" && "${{ steps.test_run.outputs.nsyte_version_used }}" != "v0.5.3" ]]; then
-            echo "::warning::Latest version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.5.3. Check nsyte release tagging or the action's version resolution logic."
+          # Check if the version used resolves to the current latest stable release when input is 'latest'
+          if [[ "${{ matrix.version }}" == "latest" && "${{ steps.test_run.outputs.nsyte_version_used }}" != "v0.21.5" ]]; then
+            echo "::warning::Latest stable version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.21.5. Check nsyte release tagging or the action's version resolution logic."
             # Not failing the test for this warning, but it's important to note.
           fi
           echo "Verification passed: Outputs are populated, and status is 'failure' as expected with dummy inputs." 

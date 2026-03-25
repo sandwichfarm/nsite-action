@@ -3,11 +3,11 @@
 <!-- [![GitHub release (latest by date)](https://img.shields.io/github/v/release/your-username/nsite-action)](https://github.com/your-username/nsite-action/releases)
 [![GitHub Actions CI](https://github.com/your-username/nsite-action/actions/workflows/test.yml/badge.svg)](https://github.com/your-username/nsite-action/actions/workflows/test.yml) -->
 
-Deploy static websites to Blossom/Nostr in a Github Actions Workflow, powered by [nsyte](https://github.com/sandwichfarm/nsyte).
+Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by [nsyte](https://github.com/sandwichfarm/nsyte).
 
 ## Dependencies
 - Bunker Signer (NIP-46) for establishing a handshake
-- [nsyte](http://github.com/sandwichfarm/nsyte) - For generating an `nbunksec` bunker secret key.
+- [nsyte](https://github.com/sandwichfarm/nsyte) - For generating a signing credential with `nsyte ci`.
 
 ## Quick Start
 
@@ -15,21 +15,22 @@ Deploy static websites to Blossom/Nostr in a Github Actions Workflow, powered by
    ```bash
    nsyte ci
    ```
-   Follow prompts for Nostr Connect and it will display an **nbunksec**; this is a revocable credential, but still treat it as a secret.
+   Follow the Nostr Connect prompts and `nsyte` will display a signing credential such as `nbunksec`; it is revocable, but still treat it as a secret.
 
 2. **Add GitHub Secret**:
-   - Add the `nbunksec` string as a repository secret named `NBUNKSEC`
+   - Add the generated credential as a repository secret, for example `NBUNK_SECRET`
 
 3. **Add to workflow**:
-   ```yaml
-   - name: Deploy to Nostr/Blossom
-     uses: sandwichfarm/nsite-action@v0.2.2
-     with:
-       nbunksec: ${{ secrets.NBUNKSEC }}
-       directory: './dist'  # Your built website directory
-       relays: |
-         wss://relay.nsite.lol
-       servers: |
+    ```yaml
+    - name: Deploy to Nostr/Blossom
+      uses: sandwichfarm/nsite-action@v0.2.2
+      with:
+        sec: ${{ secrets.NBUNK_SECRET }}
+        directory: './dist'  # Your built website directory
+        version: 'v0.23.0'
+        relays: |
+          wss://relay.nsite.lol
+        servers: |
          https://cdn.hzrd149.com
          https://cdn.sovbit.host
    ```
@@ -38,19 +39,25 @@ Deploy static websites to Blossom/Nostr in a Github Actions Workflow, powered by
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `nbunksec` | Yes | - | Bunker auth string (store as GitHub Secret) |
+| `version` | No | `latest` | nsyte release tag to download (for example `v0.23.0`) |
+| `sec` | No | - | Signing secret; accepts `nsec`, `nbunksec`, `bunker://` URL, or hex |
+| `nbunksec` | No | - | Deprecated alias for `sec` |
 | `directory` | Yes | - | Directory containing website files |
-| `relays` | Yes | - | Newline separated relay URIs |
-| `servers` | Yes | - | Newline separated server URIs |
-| `nsyte_version` | No | latest | Version tag (e.g., "v0.5.0") |
+| `relays` | No | `''` | Newline-separated relay URIs |
+| `servers` | No | `''` | Newline-separated Blossom server URIs |
 | `force` | No | false | Re-upload all files |
-| `purge` | No | false | Delete remote files not present locally |
+| `purge` | No | false | Deprecated; no longer supported by `nsyte` |
+| `sync` | No | false | Check all servers and upload missing blobs |
 | `verbose` | No | false | Show detailed output |
 | `concurrency` | No | 4 | Number of parallel uploads |
 | `fallback` | No | '' | Fallback HTML path (e.g., "/index.html") |
-| `publish_server_list` | No | false | use this for new/fresh npubs without blossom servers configured |
-| `publish_relay_list` | No | false | use this for new/fresh npubs without relays configured |
-| `publish_profile` | No | false | use this for new/fresh npubs without a profile configured |
+| `publish_server_list` | No | false | Publish configured servers for fresh identities |
+| `publish_relay_list` | No | false | Publish configured relays for fresh identities |
+| `publish_profile` | No | false | Publish profile metadata for fresh identities |
+| `use_fallback_relays` | No | false | Include nsyte default relays in addition to configured relays |
+| `use_fallback_servers` | No | false | Include nsyte default servers in addition to configured servers |
+| `publish_app_handler` | No | false | Publish a NIP-89 app handler announcement |
+| `handler_kinds` | No | `''` | Comma-separated event kinds for the app handler |
 
 ## Outputs
 
@@ -64,21 +71,21 @@ Deploy static websites to Blossom/Nostr in a Github Actions Workflow, powered by
 - Downloads nsyte binary automatically
 - Supports Linux, macOS, and Windows
 - Masks sensitive secrets in logs
-- Authenticates via NIP-46 bunker
+- Accepts `sec` directly and keeps `nbunksec` as a deprecated alias
 
-## `nbunksec` Revocation
+## Credential Revocation
 
-- Revocation is handled by your Bunker Signer of choice (NIP-46).
-- If you leak your `nbunksec` you should rotate your keys.
-- keys should be rotated periodically (revoke old `nbunksec`, establish a new connection and update secrets)
+- Revocation is handled by your bunker signer of choice (NIP-46).
+- If you leak your signing credential, rotate it immediately.
+- Rotate credentials periodically: revoke the old credential, establish a new connection, and update your GitHub secret.
 
 ## Security Notes
 
-- **DO NOT** store `nbunksec` as an environment variable or commit to source code
-- Store `nbunksec` as a GitHub Secret
+- **DO NOT** commit signing credentials to source code
+- Store the credential as a GitHub Secret
 - Configure bunker with minimal permissions
-- Consider pinning to specific `nsyte_version`
-- Rotate `nbunksec` periodically
+- Consider pinning to a specific `version`
+- Rotate credentials periodically
 
 ## Resources
 - [awesome-nsite](https://github.com/nostrver-se/awesome-nsite)
