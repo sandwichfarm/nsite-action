@@ -23,7 +23,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 3. **Add to workflow**:
     ```yaml
     - name: Deploy to Nostr/Blossom
-      uses: sandwichfarm/nsite-action@v0.2.2
+      uses: sandwichfarm/nsite-action@v0.3.0
       with:
         nbunksec: ${{ secrets.NBUNK_SECRET }}
         directory: './dist'  # Your built website directory
@@ -104,4 +104,4 @@ See [test.yml](.github/workflows/test.yml) for testing. Run `make test-local` fo
 
 ## License
 
-[MIT License](./LICENSE) 
+[MIT License](./LICENSE)
