@@ -58,9 +58,18 @@ jobs:
       - name: Verify Action Attempted Run
         shell: bash
         run: |
+          echo "Action step outcome: ${{ steps.test_run.outcome }}"
+          echo "Action step conclusion: ${{ steps.test_run.conclusion }}"
           echo "Action outputs from test_run step:"
           echo "  Status: ${{ steps.test_run.outputs.status }}"
           echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version_used }}"
+
+          if [[ "${{ steps.test_run.outcome }}" != "failure" ]]; then
+            echo "::error::Expected the action step outcome to be 'failure' when nsyte exits non-zero, but got '${{ steps.test_run.outcome }}'."
+            exit 1
+          else
+            echo "Action step outcome correctly reported as 'failure'."
+          fi
           
           if [[ -z "${{ steps.test_run.outputs.nsyte_version_used }}" ]]; then
             echo "::error::Output 'nsyte_version_used' was NOT set."

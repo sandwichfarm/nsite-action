@@ -299,7 +299,7 @@ runs:
         
         eval "$NSYT_COMMAND"
         COMMAND_EXIT_CODE=$? # Capture the exit code of the nsyte command
-        echo COMMAND_EXIT_CODE=$?
+        echo "COMMAND_EXIT_CODE=$COMMAND_EXIT_CODE"
 
         if [[ $COMMAND_EXIT_CODE -eq 0 ]]; then
            echo "nsyte deploy completed successfully."
@@ -310,7 +310,5 @@ runs:
            echo "::error::nsyte deploy command failed with exit code $COMMAND_EXIT_CODE." # Log the error
            #echo "::set-output name=status::failure"
            echo "status=failure" >> $GITHUB_OUTPUT
-           # This script step itself should still exit 0 to ensure outputs are processed.
-           # The calling workflow (test.yml) has continue-on-error: true and will check the 'status' output.
         fi
-        exit 0 # Explicitly exit 0 for this script step 
+        exit "$COMMAND_EXIT_CODE"
