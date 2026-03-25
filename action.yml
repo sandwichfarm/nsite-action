@@ -80,8 +80,10 @@ inputs:
 outputs:
   status:
     description: 'Status of the deploy operation (e.g., "success").'
+    value: ${{ steps.nsyte_run.outputs.status }}
   nsyte_version_used:
     description: 'The actual version of nsyte that was downloaded and used.'
+    value: ${{ steps.nsyte_run.outputs.nsyte_version_used }}
 
 branding:
   icon: 'upload-cloud'
