@@ -15,7 +15,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
    ```bash
    nsyte ci
    ```
-   Follow the Nostr Connect prompts and `nsyte` will display a signing credential such as `nbunksec1...`; pass that value to this action via `sec`. It is revocable, but still treat it as a secret.
+   Follow the Nostr Connect prompts and `nsyte` will display a signing credential such as `nbunksec1...`; pass that value to this action via `nbunksec`. Do not paste a `sec1...` private key into this action.
 
 2. **Add GitHub Secret**:
    - Add the generated credential as a repository secret, for example `NBUNK_SECRET`
@@ -25,23 +25,22 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
     - name: Deploy to Nostr/Blossom
       uses: sandwichfarm/nsite-action@v0.2.2
       with:
-        sec: ${{ secrets.NBUNK_SECRET }}
+        nbunksec: ${{ secrets.NBUNK_SECRET }}
         directory: './dist'  # Your built website directory
         version: 'v0.23.0'
         relays: |
           wss://relay.nsite.lol
         servers: |
-         https://cdn.hzrd149.com
-         https://cdn.sovbit.host
-   ```
+          https://cdn.hzrd149.com
+          https://cdn.sovbit.host
+    ```
 
 ## Inputs
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `version` | No | `latest` | nsyte release tag to download (for example `v0.23.0`) |
-| `sec` | No | - | Signing secret passed to nsyte via `--sec`; accepts `nsec`, `nbunksec`, `bunker://` URL, or hex |
-| `nbunksec` | No | - | Deprecated action-only compatibility alias for `sec` |
+| `nbunksec` | No | - | Recommended CI credential. Must start with `nbunksec1`. This action rejects `sec1` values for this input. |
 | `directory` | Yes | - | Directory containing website files |
 | `relays` | No | `''` | Newline-separated relay URIs |
 | `servers` | No | `''` | Newline-separated Blossom server URIs |
@@ -71,7 +70,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 - Downloads nsyte binary automatically
 - Supports Linux, macOS, and Windows
 - Masks sensitive secrets in logs
-- Uses nsyte's `--sec` auth flag and keeps `nbunksec` only as a deprecated action compatibility alias
+- Accepts the safer `nbunksec` action input and passes it through to nsyte
 
 ## Credential Revocation
 
@@ -79,10 +78,17 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 - If you leak your signing credential, rotate it immediately.
 - Rotate credentials periodically: revoke the old credential, establish a new connection, and update your GitHub secret.
 
+## No Warranty
+
+- This action is provided without warranty of any kind, express or implied.
+- If a signing credential or private key is exposed, any resulting loss, impersonation, or irreversible publish action is your responsibility.
+- Nostr events and published site data may be replicated by relays and other infrastructure; compromise and publication are not generally revocable.
+
 ## Security Notes
 
+- **DO NOT** paste a `sec1...` private key into this action
+- Use `nsyte ci` and store only the resulting `nbunksec1...` credential as a GitHub Secret
 - **DO NOT** commit signing credentials to source code
-- Store the credential as a GitHub Secret
 - Configure bunker with minimal permissions
 - Consider pinning to a specific `version`
 - Rotate credentials periodically

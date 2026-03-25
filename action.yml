@@ -8,10 +8,10 @@ inputs:
     required: false
     default: 'latest'
   sec:
-    description: 'The signing secret for authentication, passed to nsyte via --sec. Accepts nsec, nbunksec, bunker:// URL, or hex. Store as a GitHub Secret.'
+    description: 'Compatibility input. Prefer nbunksec; this value is still passed to nsyte via --sec.'
     required: false
   nbunksec:
-    description: 'DEPRECATED compatibility alias for "sec". nsyte no longer has a separate --nbunksec flag; pass nbunksec credentials via --sec instead.'
+    description: 'Recommended CI signing credential. Must start with nbunksec1; this action rejects sec1 values to discourage direct private key usage.'
     required: false
   directory:
     description: 'The directory containing the static files to deploy.'
@@ -244,7 +244,19 @@ runs:
       shell: bash
       run: |
         # The -i flag is critical for non-interactive CI environments
-        # Use 'sec' input if provided, fall back to deprecated action-level 'nbunksec' alias
+        NBUNKSEC_VALUE="${{ inputs.nbunksec }}"
+        if [[ -n "$NBUNKSEC_VALUE" ]]; then
+          if [[ "$NBUNKSEC_VALUE" == sec1* ]]; then
+            echo "::error::The 'nbunksec' input must not be a sec1 private key. Generate a CI credential with 'nsyte ci' and use the resulting nbunksec1 value instead."
+            exit 1
+          fi
+          if [[ "$NBUNKSEC_VALUE" != nbunksec1* ]]; then
+            echo "::error::The 'nbunksec' input must start with 'nbunksec1'."
+            exit 1
+          fi
+        fi
+
+        # Pass either compatibility input through nsyte's --sec flag
         SEC_VALUE="${{ inputs.sec || inputs.nbunksec }}"
         CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --sec \"$SEC_VALUE\""
 
