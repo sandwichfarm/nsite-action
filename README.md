@@ -15,7 +15,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
    ```bash
    nsyte ci
    ```
-   Follow the Nostr Connect prompts and `nsyte` will display a signing credential such as `nbunksec`; it is revocable, but still treat it as a secret.
+   Follow the Nostr Connect prompts and `nsyte` will display a signing credential such as `nbunksec1...`; pass that value to this action via `sec`. It is revocable, but still treat it as a secret.
 
 2. **Add GitHub Secret**:
    - Add the generated credential as a repository secret, for example `NBUNK_SECRET`
@@ -40,13 +40,13 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `version` | No | `latest` | nsyte release tag to download (for example `v0.23.0`) |
-| `sec` | No | - | Signing secret; accepts `nsec`, `nbunksec`, `bunker://` URL, or hex |
-| `nbunksec` | No | - | Deprecated alias for `sec` |
+| `sec` | No | - | Signing secret passed to nsyte via `--sec`; accepts `nsec`, `nbunksec`, `bunker://` URL, or hex |
+| `nbunksec` | No | - | Deprecated action-only compatibility alias for `sec` |
 | `directory` | Yes | - | Directory containing website files |
 | `relays` | No | `''` | Newline-separated relay URIs |
 | `servers` | No | `''` | Newline-separated Blossom server URIs |
 | `force` | No | false | Re-upload all files |
-| `purge` | No | false | Deprecated; no longer supported by `nsyte` |
+| `purge` | No | false | Deprecated; there is no deploy-time `--purge` flag in `nsyte` |
 | `sync` | No | false | Check all servers and upload missing blobs |
 | `verbose` | No | false | Show detailed output |
 | `concurrency` | No | 4 | Number of parallel uploads |
@@ -71,7 +71,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 - Downloads nsyte binary automatically
 - Supports Linux, macOS, and Windows
 - Masks sensitive secrets in logs
-- Accepts `sec` directly and keeps `nbunksec` as a deprecated alias
+- Uses nsyte's `--sec` auth flag and keeps `nbunksec` only as a deprecated action compatibility alias
 
 ## Credential Revocation
 

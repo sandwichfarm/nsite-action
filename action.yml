@@ -8,10 +8,10 @@ inputs:
     required: false
     default: 'latest'
   sec:
-    description: 'The signing secret for authentication. Accepts nsec, nbunksec, bunker:// URL, or hex. Store as a GitHub Secret.'
+    description: 'The signing secret for authentication, passed to nsyte via --sec. Accepts nsec, nbunksec, bunker:// URL, or hex. Store as a GitHub Secret.'
     required: false
   nbunksec:
-    description: 'DEPRECATED: Use "sec" instead. The nbunksec string for authentication via NIP-46 bunker. Store this as a GitHub Secret.'
+    description: 'DEPRECATED compatibility alias for "sec". nsyte no longer has a separate --nbunksec flag; pass nbunksec credentials via --sec instead.'
     required: false
   directory:
     description: 'The directory containing the static files to deploy.'
@@ -21,7 +21,7 @@ inputs:
     required: false
     default: ''
   servers:
-    description: 'Newline-separated list of Blossom server URIs to deploy files to.'
+    description: 'Newline-separated list of Blossom server HTTPS URLs to deploy files to.'
     required: false
     default: ''
   force:
@@ -29,7 +29,7 @@ inputs:
     required: false
     default: 'false'
   purge:
-    description: 'DEPRECATED: No longer supported in nsyte. Use the nsyte "delete" or "undeploy" commands instead.'
+    description: 'DEPRECATED: There is no deploy-time purge flag in nsyte. Use the nsyte "delete" or "undeploy" commands instead.'
     required: false
     default: 'false'
   sync:
@@ -53,7 +53,7 @@ inputs:
     required: false
     default: 'false'
   publish_relay_list: 
-    description: 'true/false. If true, the relay list will be published to Blossom servers.'
+    description: 'true/false. If true, the relay list will be published to relays.'
     required: false
     default: 'false'
   publish_profile:
@@ -244,7 +244,7 @@ runs:
       shell: bash
       run: |
         # The -i flag is critical for non-interactive CI environments
-        # Use 'sec' input if provided, fall back to deprecated 'nbunksec'
+        # Use 'sec' input if provided, fall back to deprecated action-level 'nbunksec' alias
         SEC_VALUE="${{ inputs.sec || inputs.nbunksec }}"
         CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --sec \"$SEC_VALUE\""
 

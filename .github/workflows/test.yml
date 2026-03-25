@@ -48,12 +48,12 @@ jobs:
             wss://nostr.example.com
             wss://relay.example.org
           servers: |
-            wss://blossom.example.com
+            https://blossom.example.com
           force: true
           verbose: true
           fallback: '/fallback.html'
           concurrency: 2
-        continue-on-error: true # Expect failure with dummy nbunksec/relays/servers
+        continue-on-error: true # Expect failure with dummy signing secret/relays/servers
 
       - name: Verify Action Attempted Run
         shell: bash
