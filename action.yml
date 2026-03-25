@@ -8,10 +8,10 @@ inputs:
     required: false
     default: 'latest'
   sec:
-    description: 'The signing secret for authentication. Accepts nsec, nbunksec, bunker:// URL, or hex. Store as a GitHub Secret.'
+    description: 'Compatibility input. Prefer nbunksec; this value is still passed to nsyte via --sec.'
     required: false
   nbunksec:
-    description: 'DEPRECATED: Use "sec" instead. The nbunksec string for authentication via NIP-46 bunker. Store this as a GitHub Secret.'
+    description: 'Recommended CI signing credential. Must start with nbunksec1; this action rejects sec1 values to discourage direct private key usage.'
     required: false
   directory:
     description: 'The directory containing the static files to deploy.'
@@ -21,7 +21,7 @@ inputs:
     required: false
     default: ''
   servers:
-    description: 'Newline-separated list of Blossom server URIs to deploy files to.'
+    description: 'Newline-separated list of Blossom server HTTPS URLs to deploy files to.'
     required: false
     default: ''
   force:
@@ -29,7 +29,7 @@ inputs:
     required: false
     default: 'false'
   purge:
-    description: 'DEPRECATED: No longer supported in nsyte. Use the nsyte "delete" or "undeploy" commands instead.'
+    description: 'DEPRECATED: There is no deploy-time purge flag in nsyte. Use the nsyte "delete" or "undeploy" commands instead.'
     required: false
     default: 'false'
   sync:
@@ -53,7 +53,7 @@ inputs:
     required: false
     default: 'false'
   publish_relay_list: 
-    description: 'true/false. If true, the relay list will be published to Blossom servers.'
+    description: 'true/false. If true, the relay list will be published to relays.'
     required: false
     default: 'false'
   publish_profile:
@@ -80,8 +80,10 @@ inputs:
 outputs:
   status:
     description: 'Status of the deploy operation (e.g., "success").'
+    value: ${{ steps.nsyte_run.outputs.status }}
   nsyte_version_used:
     description: 'The actual version of nsyte that was downloaded and used.'
+    value: ${{ steps.nsyte_run.outputs.nsyte_version_used }}
 
 branding:
   icon: 'upload-cloud'
@@ -95,13 +97,20 @@ runs:
       shell: bash
       run: |
         PLATFORM=""
+        ARCH_SUFFIX=""
         EXE_SUFFIX=""
         if [[ "${{ runner.os }}" == "Linux" ]]; then PLATFORM="linux";
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then PLATFORM="macos";
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          PLATFORM="macos"
+          RUNNER_ARCH="$(uname -m)"
+          if [[ "$RUNNER_ARCH" == "arm64" ]]; then ARCH_SUFFIX="-arm64";
+          elif [[ "$RUNNER_ARCH" == "x86_64" ]]; then ARCH_SUFFIX="-x64";
+          else echo "::error::Unsupported macOS architecture: $RUNNER_ARCH"; exit 1; fi
         elif [[ "${{ runner.os }}" == "Windows" ]]; then PLATFORM="windows"; EXE_SUFFIX=".exe";
         else echo "::error::Unsupported runner OS: ${{ runner.os }}"; exit 1; fi
-        echo "Detected platform: $PLATFORM"
+        echo "Detected platform: $PLATFORM$ARCH_SUFFIX"
         echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+        echo "arch_suffix=$ARCH_SUFFIX" >> $GITHUB_OUTPUT
         echo "exe_suffix=$EXE_SUFFIX" >> $GITHUB_OUTPUT
 
     - name: Ensure jq is installed
@@ -186,16 +195,35 @@ runs:
         VERSION_TAG="${{ steps.version.outputs.version }}"
         VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
         PLATFORM="${{ steps.platform.outputs.platform }}"
+        ARCH_SUFFIX="${{ steps.platform.outputs.arch_suffix }}"
         EXE_SUFFIX="${{ steps.platform.outputs.exe_suffix }}"
-        ASSET_FILENAME="nsyte-$PLATFORM-$VERSION_NUMBER$EXE_SUFFIX"
-        DOWNLOAD_URL="https://github.com/sandwichfarm/nsyte/releases/download/$VERSION_TAG/$ASSET_FILENAME"
-        echo "Downloading nsyte $ASSET_FILENAME from $DOWNLOAD_URL"
         mkdir -p nsyte_bin 
-        HTTP_STATUS=$(curl -sL -w "%{http_code}" -o "nsyte_bin/$ASSET_FILENAME" "$DOWNLOAD_URL")
-        if [[ "$HTTP_STATUS" != "200" ]]; then
-          echo "::error::Failed to download $ASSET_FILENAME (HTTP Status: $HTTP_STATUS)."
-          echo "Please check if version '$VERSION_TAG' and asset '$ASSET_FILENAME' exist for platform '$PLATFORM'."
-          
+
+        ASSET_CANDIDATES=()
+        if [[ "$PLATFORM" == "macos" ]]; then
+          ASSET_CANDIDATES+=("nsyte-$PLATFORM$ARCH_SUFFIX-$VERSION_NUMBER$EXE_SUFFIX")
+          ASSET_CANDIDATES+=("nsyte-$PLATFORM$ARCH_SUFFIX$EXE_SUFFIX")
+        else
+          ASSET_CANDIDATES+=("nsyte-$PLATFORM-$VERSION_NUMBER$EXE_SUFFIX")
+          ASSET_CANDIDATES+=("nsyte-$PLATFORM$EXE_SUFFIX")
+        fi
+
+        ASSET_FILENAME=""
+        for CANDIDATE in "${ASSET_CANDIDATES[@]}"; do
+          DOWNLOAD_URL="https://github.com/sandwichfarm/nsyte/releases/download/$VERSION_TAG/$CANDIDATE"
+          echo "Trying nsyte asset $CANDIDATE from $DOWNLOAD_URL"
+          HTTP_STATUS=$(curl -sL -w "%{http_code}" -o "nsyte_bin/$CANDIDATE" "$DOWNLOAD_URL")
+          if [[ "$HTTP_STATUS" == "200" ]]; then
+            ASSET_FILENAME="$CANDIDATE"
+            break
+          fi
+          rm -f "nsyte_bin/$CANDIDATE"
+        done
+
+        if [[ -z "$ASSET_FILENAME" ]]; then
+          echo "::error::Failed to download a compatible nsyte asset for version '$VERSION_TAG'."
+          echo "Tried assets: ${ASSET_CANDIDATES[*]}"
+
           if command -v gh &> /dev/null && gh auth status &> /dev/null; then
             gh release view "$VERSION_TAG" -R sandwichfarm/nsyte --json assets --jq '.assets[].name' 2>/dev/null || echo "(Could not list assets with gh CLI)"
           else 
@@ -203,6 +231,8 @@ runs:
           fi
           exit 1
         fi
+
+        echo "Downloaded nsyte asset: $ASSET_FILENAME"
         chmod +x "nsyte_bin/$ASSET_FILENAME"
         # Using ::set-output for nsyte_path
         #echo "::set-output name=nsyte_path::$(pwd)/nsyte_bin/$ASSET_FILENAME"
@@ -214,13 +244,25 @@ runs:
       shell: bash
       run: |
         # The -i flag is critical for non-interactive CI environments
-        # Use 'sec' input if provided, fall back to deprecated 'nbunksec'
+        NBUNKSEC_VALUE="${{ inputs.nbunksec }}"
+        if [[ -n "$NBUNKSEC_VALUE" ]]; then
+          if [[ "$NBUNKSEC_VALUE" == sec1* ]]; then
+            echo "::error::The 'nbunksec' input must not be a sec1 private key. Generate a CI credential with 'nsyte ci' and use the resulting nbunksec1 value instead."
+            exit 1
+          fi
+          if [[ "$NBUNKSEC_VALUE" != nbunksec1* ]]; then
+            echo "::error::The 'nbunksec' input must start with 'nbunksec1'."
+            exit 1
+          fi
+        fi
+
+        # Pass either compatibility input through nsyte's --sec flag
         SEC_VALUE="${{ inputs.sec || inputs.nbunksec }}"
         CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --sec \"$SEC_VALUE\""
 
         # Handle relays as newline-separated list
         if [[ -n "${{ inputs.relays }}" ]]; then
-          RELAYS_CSV=$(echo "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | paste -sd,)
+          RELAYS_CSV=$(printf '%s' "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | tr '\n' ',' | sed 's/,$//')
           if [[ -n "$RELAYS_CSV" ]]; then
              CMD+=" --relays \"$RELAYS_CSV\""
           fi
@@ -228,7 +270,7 @@ runs:
 
         # Handle servers as newline-separated list
         if [[ -n "${{ inputs.servers }}" ]]; then
-          SERVERS_CSV=$(echo "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | paste -sd,)
+          SERVERS_CSV=$(printf '%s' "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | tr '\n' ',' | sed 's/,$//')
           if [[ -n "$SERVERS_CSV" ]]; then
             CMD+=" --servers \"$SERVERS_CSV\""
           fi
@@ -269,7 +311,7 @@ runs:
         
         eval "$NSYT_COMMAND"
         COMMAND_EXIT_CODE=$? # Capture the exit code of the nsyte command
-        echo COMMAND_EXIT_CODE=$?
+        echo "COMMAND_EXIT_CODE=$COMMAND_EXIT_CODE"
 
         if [[ $COMMAND_EXIT_CODE -eq 0 ]]; then
            echo "nsyte deploy completed successfully."
@@ -280,7 +322,13 @@ runs:
            echo "::error::nsyte deploy command failed with exit code $COMMAND_EXIT_CODE." # Log the error
            #echo "::set-output name=status::failure"
            echo "status=failure" >> $GITHUB_OUTPUT
-           # This script step itself should still exit 0 to ensure outputs are processed.
-           # The calling workflow (test.yml) has continue-on-error: true and will check the 'status' output.
         fi
-        exit 0 # Explicitly exit 0 for this script step 
+        echo "exit_code=$COMMAND_EXIT_CODE" >> $GITHUB_OUTPUT
+        exit 0
+
+    - name: Fail composite action on nsyte error
+      if: ${{ steps.nsyte_run.outputs.exit_code != '0' }}
+      shell: bash
+      run: |
+        echo "Failing action because nsyte exited with code ${{ steps.nsyte_run.outputs.exit_code }}."
+        exit 1

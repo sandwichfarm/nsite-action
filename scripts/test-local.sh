@@ -56,16 +56,16 @@ echo "Created test-local-dir/index.html"
 
 # Define dummy relays and servers for example
 TEST_RELAYS="wss://relay.example.com,wss://nostr.example.org"
-TEST_SERVERS="wss://blossom.example.com"
+TEST_SERVERS="https://blossom.example.com"
 
 echo
 echo "Would construct command like:"
-echo "$FAKE_BINARY_NAME deploy './test-local-dir' --sec '<nsec|nbunksec|bunker://|hex>' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' [OTHER_FLAGS]"
+echo "$FAKE_BINARY_NAME deploy './test-local-dir' --sec '<nsec|nbunksec1|bunker://|hex>' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' [OTHER_FLAGS]"
 
 echo
 echo "=== Test Complete ==="
 echo "To run the actual action, you'd need to:"
 echo "1. Push this repo to GitHub"
-echo "2. Set up appropriate secrets (SEC - accepts nsec, nbunksec, bunker://, or hex)"
+echo "2. Set up appropriate secrets (SEC - passed to nsyte via --sec and accepts nsec, nbunksec, bunker://, or hex)"
 echo "3. Configure relays and servers in your workflow"
 echo "4. Run the workflow in Actions tab or use 'act' locally" 

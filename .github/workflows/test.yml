@@ -21,7 +21,7 @@ jobs:
         # Test on common OSes. Add more if nsyte supports them and has releases.
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Use 'latest' to test the version resolution logic
-        nsyte_version: ['latest']
+        version: ['latest']
 
     steps:
       - name: Checkout Repository
@@ -33,7 +33,8 @@ jobs:
           mkdir test-dist
           echo "<html>Test index.html</html>" > test-dist/index.html
           echo "<html>Test fallback.html</html>" > test-dist/fallback.html 
-          echo "DUMMY_SEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
+          echo "DUMMY_NBUNKSEC=nbunksec1fakebunkersecretstringforactiontestingpurposesonly" >> $GITHUB_ENV
+          echo "DUMMY_SEC1=sec1fakeprivatekeystringforvalidationtestingonly" >> $GITHUB_ENV
 
       - name: Run nsite-action (Local Path)
         uses: ./ 
@@ -41,26 +42,46 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         with:
-          sec: ${{ env.DUMMY_SEC }}
+          nbunksec: ${{ env.DUMMY_NBUNKSEC }}
           directory: './test-dist'
-          nsyte_version: ${{ matrix.nsyte_version }}
+          version: ${{ matrix.version }}
           relays: |
             wss://nostr.example.com
             wss://relay.example.org
           servers: |
-            wss://blossom.example.com
+            https://blossom.example.com
           force: true
           verbose: true
           fallback: '/fallback.html'
           concurrency: 2
-        continue-on-error: true # Expect failure with dummy nbunksec/relays/servers
+        continue-on-error: true # Expect failure with dummy signing secret/relays/servers
+
+      - name: Reject sec1 value in nbunksec input
+        uses: ./
+        id: reject_sec1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          nbunksec: ${{ env.DUMMY_SEC1 }}
+          directory: './test-dist'
+          version: ${{ matrix.version }}
+        continue-on-error: true
 
       - name: Verify Action Attempted Run
         shell: bash
         run: |
+          echo "Action step outcome: ${{ steps.test_run.outcome }}"
+          echo "Action step conclusion: ${{ steps.test_run.conclusion }}"
           echo "Action outputs from test_run step:"
           echo "  Status: ${{ steps.test_run.outputs.status }}"
           echo "  nsyte Version Used: ${{ steps.test_run.outputs.nsyte_version_used }}"
+
+          if [[ "${{ steps.test_run.outcome }}" != "failure" ]]; then
+            echo "::error::Expected the action step outcome to be 'failure' when nsyte exits non-zero, but got '${{ steps.test_run.outcome }}'."
+            exit 1
+          else
+            echo "Action step outcome correctly reported as 'failure'."
+          fi
           
           if [[ -z "${{ steps.test_run.outputs.nsyte_version_used }}" ]]; then
             echo "::error::Output 'nsyte_version_used' was NOT set."
@@ -77,9 +98,17 @@ jobs:
             echo "Status output correctly set to 'failure'."
           fi
 
-          # Check if the version used is the expected latest (v0.5.3) when input is 'latest'
-          if [[ "${{ inputs.nsyte_version }}" == "latest" && "${{ steps.test_run.outputs.nsyte_version_used }}" != "v0.5.3" ]]; then
-            echo "::warning::Latest version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.5.3. Check nsyte release tagging or the action's version resolution logic."
+          # Check if the version used resolves to the current latest stable release when input is 'latest'
+          if [[ "${{ matrix.version }}" == "latest" && "${{ steps.test_run.outputs.nsyte_version_used }}" != "v0.23.0" ]]; then
+            echo "::warning::Latest stable version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.23.0. Check nsyte release tagging or the action's version resolution logic."
             # Not failing the test for this warning, but it's important to note.
           fi
+
+          if [[ "${{ steps.reject_sec1.outcome }}" != "failure" ]]; then
+            echo "::error::Expected the invalid nbunksec step to fail, but got '${{ steps.reject_sec1.outcome }}'."
+            exit 1
+          else
+            echo "Invalid nbunksec value was correctly rejected."
+          fi
+
           echo "Verification passed: Outputs are populated, and status is 'failure' as expected with dummy inputs." 
