@@ -95,13 +95,20 @@ runs:
       shell: bash
       run: |
         PLATFORM=""
+        ARCH_SUFFIX=""
         EXE_SUFFIX=""
         if [[ "${{ runner.os }}" == "Linux" ]]; then PLATFORM="linux";
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then PLATFORM="macos";
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          PLATFORM="macos"
+          RUNNER_ARCH="$(uname -m)"
+          if [[ "$RUNNER_ARCH" == "arm64" ]]; then ARCH_SUFFIX="-arm64";
+          elif [[ "$RUNNER_ARCH" == "x86_64" ]]; then ARCH_SUFFIX="-x64";
+          else echo "::error::Unsupported macOS architecture: $RUNNER_ARCH"; exit 1; fi
         elif [[ "${{ runner.os }}" == "Windows" ]]; then PLATFORM="windows"; EXE_SUFFIX=".exe";
         else echo "::error::Unsupported runner OS: ${{ runner.os }}"; exit 1; fi
-        echo "Detected platform: $PLATFORM"
+        echo "Detected platform: $PLATFORM$ARCH_SUFFIX"
         echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+        echo "arch_suffix=$ARCH_SUFFIX" >> $GITHUB_OUTPUT
         echo "exe_suffix=$EXE_SUFFIX" >> $GITHUB_OUTPUT
 
     - name: Ensure jq is installed
@@ -186,16 +193,35 @@ runs:
         VERSION_TAG="${{ steps.version.outputs.version }}"
         VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
         PLATFORM="${{ steps.platform.outputs.platform }}"
+        ARCH_SUFFIX="${{ steps.platform.outputs.arch_suffix }}"
         EXE_SUFFIX="${{ steps.platform.outputs.exe_suffix }}"
-        ASSET_FILENAME="nsyte-$PLATFORM-$VERSION_NUMBER$EXE_SUFFIX"
-        DOWNLOAD_URL="https://github.com/sandwichfarm/nsyte/releases/download/$VERSION_TAG/$ASSET_FILENAME"
-        echo "Downloading nsyte $ASSET_FILENAME from $DOWNLOAD_URL"
         mkdir -p nsyte_bin 
-        HTTP_STATUS=$(curl -sL -w "%{http_code}" -o "nsyte_bin/$ASSET_FILENAME" "$DOWNLOAD_URL")
-        if [[ "$HTTP_STATUS" != "200" ]]; then
-          echo "::error::Failed to download $ASSET_FILENAME (HTTP Status: $HTTP_STATUS)."
-          echo "Please check if version '$VERSION_TAG' and asset '$ASSET_FILENAME' exist for platform '$PLATFORM'."
-          
+
+        ASSET_CANDIDATES=()
+        if [[ "$PLATFORM" == "macos" ]]; then
+          ASSET_CANDIDATES+=("nsyte-$PLATFORM$ARCH_SUFFIX-$VERSION_NUMBER$EXE_SUFFIX")
+          ASSET_CANDIDATES+=("nsyte-$PLATFORM$ARCH_SUFFIX$EXE_SUFFIX")
+        else
+          ASSET_CANDIDATES+=("nsyte-$PLATFORM-$VERSION_NUMBER$EXE_SUFFIX")
+          ASSET_CANDIDATES+=("nsyte-$PLATFORM$EXE_SUFFIX")
+        fi
+
+        ASSET_FILENAME=""
+        for CANDIDATE in "${ASSET_CANDIDATES[@]}"; do
+          DOWNLOAD_URL="https://github.com/sandwichfarm/nsyte/releases/download/$VERSION_TAG/$CANDIDATE"
+          echo "Trying nsyte asset $CANDIDATE from $DOWNLOAD_URL"
+          HTTP_STATUS=$(curl -sL -w "%{http_code}" -o "nsyte_bin/$CANDIDATE" "$DOWNLOAD_URL")
+          if [[ "$HTTP_STATUS" == "200" ]]; then
+            ASSET_FILENAME="$CANDIDATE"
+            break
+          fi
+          rm -f "nsyte_bin/$CANDIDATE"
+        done
+
+        if [[ -z "$ASSET_FILENAME" ]]; then
+          echo "::error::Failed to download a compatible nsyte asset for version '$VERSION_TAG'."
+          echo "Tried assets: ${ASSET_CANDIDATES[*]}"
+
           if command -v gh &> /dev/null && gh auth status &> /dev/null; then
             gh release view "$VERSION_TAG" -R sandwichfarm/nsyte --json assets --jq '.assets[].name' 2>/dev/null || echo "(Could not list assets with gh CLI)"
           else 
@@ -203,6 +229,8 @@ runs:
           fi
           exit 1
         fi
+
+        echo "Downloaded nsyte asset: $ASSET_FILENAME"
         chmod +x "nsyte_bin/$ASSET_FILENAME"
         # Using ::set-output for nsyte_path
         #echo "::set-output name=nsyte_path::$(pwd)/nsyte_bin/$ASSET_FILENAME"

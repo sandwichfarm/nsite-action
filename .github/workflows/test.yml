@@ -78,8 +78,8 @@ jobs:
           fi
 
           # Check if the version used resolves to the current latest stable release when input is 'latest'
-          if [[ "${{ matrix.version }}" == "latest" && "${{ steps.test_run.outputs.nsyte_version_used }}" != "v0.21.5" ]]; then
-            echo "::warning::Latest stable version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.21.5. Check nsyte release tagging or the action's version resolution logic."
+          if [[ "${{ matrix.version }}" == "latest" && "${{ steps.test_run.outputs.nsyte_version_used }}" != "v0.23.0" ]]; then
+            echo "::warning::Latest stable version detected was ${{ steps.test_run.outputs.nsyte_version_used }}, expected v0.23.0. Check nsyte release tagging or the action's version resolution logic."
             # Not failing the test for this warning, but it's important to note.
           fi
           echo "Verification passed: Outputs are populated, and status is 'failure' as expected with dummy inputs." 
