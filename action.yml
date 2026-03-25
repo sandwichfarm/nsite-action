@@ -311,4 +311,12 @@ runs:
            #echo "::set-output name=status::failure"
            echo "status=failure" >> $GITHUB_OUTPUT
         fi
-        exit "$COMMAND_EXIT_CODE"
+        echo "exit_code=$COMMAND_EXIT_CODE" >> $GITHUB_OUTPUT
+        exit 0
+
+    - name: Fail composite action on nsyte error
+      if: ${{ steps.nsyte_run.outputs.exit_code != '0' }}
+      shell: bash
+      run: |
+        echo "Failing action because nsyte exited with code ${{ steps.nsyte_run.outputs.exit_code }}."
+        exit 1
