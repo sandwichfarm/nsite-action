@@ -24,6 +24,10 @@ inputs:
     description: 'Newline-separated list of Blossom server HTTPS URLs to deploy files to.'
     required: false
     default: ''
+  name:
+    description: 'Deploy as a named nsite (NIP-5A). When set, the site is published under this name via --name. When omitted, the site deploys as the root (npub) nsite.'
+    required: false
+    default: ''
   force:
     description: 'Corresponds to the --force flag in nsyte deploy. Re-deploy all files.'
     required: false
@@ -276,6 +280,7 @@ runs:
           fi
         fi
 
+        if [[ -n "${{ inputs.name }}" ]]; then CMD+=" --name \"${{ inputs.name }}\""; fi
         if [[ "${{ inputs.force }}" == "true" ]]; then CMD+=" --force"; fi
         if [[ "${{ inputs.sync }}" == "true" ]]; then CMD+=" --sync"; fi
         if [[ "${{ inputs.verbose }}" == "true" ]]; then CMD+=" --verbose"; fi
