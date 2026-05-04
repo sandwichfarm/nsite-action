@@ -23,7 +23,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 3. **Add to workflow**:
     ```yaml
     - name: Deploy to Nostr/Blossom
-      uses: sandwichfarm/nsite-action@v0.3.0
+      uses: sandwichfarm/nsite-action@v0.4.0
       with:
         nbunksec: ${{ secrets.NBUNK_SECRET }}
         directory: './dist'  # Your built website directory
@@ -57,6 +57,8 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 | `use_fallback_servers` | No | false | Include nsyte default servers in addition to configured servers |
 | `publish_app_handler` | No | false | Publish a NIP-89 app handler announcement |
 | `handler_kinds` | No | `''` | Comma-separated event kinds for the app handler |
+| `skip_secrets_scan` | No | true | Pass `--skip-secrets-scan` to nsyte. Defaults to `true` so the deploy is not blocked by example/test values that look like credentials. Set `false` to let nsyte scan the deploy directory. |
+| `scan_level` | No | `''` | Secrets scan sensitivity (`low`, `medium`, `high`) passed via `--scan-level`. Only applied when `skip_secrets_scan` is `false`. |
 
 ## Outputs
 

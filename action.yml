@@ -80,6 +80,14 @@ inputs:
     description: 'Comma-separated event kinds the nsite can handle. Only used when publish_app_handler is true.'
     required: false
     default: ''
+  skip_secrets_scan:
+    description: 'If true (default), pass --skip-secrets-scan to nsyte to bypass the pre-deploy secrets scan. Set to "false" to let nsyte scan the deploy directory for credentials before publishing. Requires an nsyte version that supports the flag; ignored automatically on older versions.'
+    required: false
+    default: 'true'
+  scan_level:
+    description: 'Secrets scan sensitivity passed to nsyte via --scan-level (low, medium, high). Only applied when skip_secrets_scan is false. Leave blank to use the nsyte default.'
+    required: false
+    default: ''
 
 outputs:
   status:
@@ -293,6 +301,23 @@ runs:
         if [[ "${{ inputs.use_fallback_servers }}" == "true" ]]; then CMD+=" --use-fallback-servers"; fi
         if [[ "${{ inputs.publish_app_handler }}" == "true" ]]; then CMD+=" --publish-app-handler"; fi
         if [[ -n "${{ inputs.handler_kinds }}" ]]; then CMD+=" --handler-kinds \"${{ inputs.handler_kinds }}\""; fi
+
+        # Secrets scan controls. Feature-detect against `nsyte deploy --help` so older
+        # nsyte versions (which have neither the scan nor the flag) still work.
+        NSYTE_HELP=$("${{ steps.download_nsyte.outputs.nsyte_path }}" deploy --help 2>&1 || true)
+        if [[ "${{ inputs.skip_secrets_scan }}" == "true" ]]; then
+          if echo "$NSYTE_HELP" | grep -q -- '--skip-secrets-scan'; then
+            CMD+=" --skip-secrets-scan"
+          else
+            echo "Note: nsyte version does not support --skip-secrets-scan; nothing to skip."
+          fi
+        elif [[ -n "${{ inputs.scan_level }}" ]]; then
+          if echo "$NSYTE_HELP" | grep -q -- '--scan-level'; then
+            CMD+=" --scan-level \"${{ inputs.scan_level }}\""
+          else
+            echo "Note: nsyte version does not support --scan-level; ignoring scan_level input."
+          fi
+        fi
         echo "command=${CMD}" >> $GITHUB_OUTPUT
 
 
