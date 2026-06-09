@@ -251,12 +251,64 @@ runs:
         echo "nsyte_path=$(pwd)/nsyte_bin/$ASSET_FILENAME" >> $GITHUB_OUTPUT
 
 
-    - name: Build nsyte command
-      id: build_cmd
+    - name: Run nsyte deploy
+      id: nsyte_run
       shell: bash
+      env:
+        NSYTE_PATH: ${{ steps.download_nsyte.outputs.nsyte_path }}
+        NSYTE_VERSION: ${{ steps.version.outputs.version }}
+        INPUT_SEC: ${{ inputs.sec }}
+        INPUT_NBUNKSEC: ${{ inputs.nbunksec }}
+        INPUT_DIRECTORY: ${{ inputs.directory }}
+        INPUT_RELAYS: ${{ inputs.relays }}
+        INPUT_SERVERS: ${{ inputs.servers }}
+        INPUT_NAME: ${{ inputs.name }}
+        INPUT_FORCE: ${{ inputs.force }}
+        INPUT_SYNC: ${{ inputs.sync }}
+        INPUT_VERBOSE: ${{ inputs.verbose }}
+        INPUT_FALLBACK: ${{ inputs.fallback }}
+        INPUT_CONCURRENCY: ${{ inputs.concurrency }}
+        INPUT_PUBLISH_SERVER_LIST: ${{ inputs.publish_server_list }}
+        INPUT_PUBLISH_RELAY_LIST: ${{ inputs.publish_relay_list }}
+        INPUT_PUBLISH_PROFILE: ${{ inputs.publish_profile }}
+        INPUT_USE_FALLBACK_RELAYS: ${{ inputs.use_fallback_relays }}
+        INPUT_USE_FALLBACK_SERVERS: ${{ inputs.use_fallback_servers }}
+        INPUT_PUBLISH_APP_HANDLER: ${{ inputs.publish_app_handler }}
+        INPUT_HANDLER_KINDS: ${{ inputs.handler_kinds }}
+        INPUT_SKIP_SECRETS_SCAN: ${{ inputs.skip_secrets_scan }}
+        INPUT_SCAN_LEVEL: ${{ inputs.scan_level }}
       run: |
-        # The -i flag is critical for non-interactive CI environments
-        NBUNKSEC_VALUE="${{ inputs.nbunksec }}"
+        set +e # Disable exit on error to manually handle exit codes and ensure outputs are set
+
+        join_nonblank_lines() {
+          awk '
+            {
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+              if (length($0) > 0) {
+                printf "%s%s", sep, $0
+                sep = ","
+              }
+            }
+          ' <<< "$1"
+        }
+
+        print_masked_command() {
+          local -a masked_cmd=("$@")
+          local i
+          for ((i = 0; i < ${#masked_cmd[@]}; i++)); do
+            case "${masked_cmd[$i]}" in
+              --sec|--relays|--servers)
+                if ((i + 1 < ${#masked_cmd[@]})); then
+                  masked_cmd[$((i + 1))]="***MASKED***"
+                fi
+                ;;
+            esac
+          done
+          printf '%q ' "${masked_cmd[@]}"
+          printf '\n'
+        }
+
+        NBUNKSEC_VALUE="$INPUT_NBUNKSEC"
         if [[ -n "$NBUNKSEC_VALUE" ]]; then
           if [[ "$NBUNKSEC_VALUE" == sec1* ]]; then
             echo "::error::The 'nbunksec' input must not be a sec1 private key. Generate a CI credential with 'nsyte ci' and use the resulting nbunksec1 value instead."
@@ -269,77 +321,67 @@ runs:
         fi
 
         # Pass either compatibility input through nsyte's --sec flag
-        SEC_VALUE="${{ inputs.sec || inputs.nbunksec }}"
-        CMD="\"${{ steps.download_nsyte.outputs.nsyte_path }}\" deploy \"${{ inputs.directory }}\" -i --sec \"$SEC_VALUE\""
+        SEC_VALUE="$INPUT_SEC"
+        if [[ -z "$SEC_VALUE" ]]; then
+          SEC_VALUE="$INPUT_NBUNKSEC"
+        fi
+
+        # The -i flag is critical for non-interactive CI environments.
+        CMD=("$NSYTE_PATH" deploy "$INPUT_DIRECTORY" -i --sec "$SEC_VALUE")
 
         # Handle relays as newline-separated list
-        if [[ -n "${{ inputs.relays }}" ]]; then
-          RELAYS_CSV=$(printf '%s' "${{ inputs.relays }}" | grep -v '^[[:space:]]*$' | tr '\n' ',' | sed 's/,$//')
+        if [[ -n "$INPUT_RELAYS" ]]; then
+          RELAYS_CSV=$(join_nonblank_lines "$INPUT_RELAYS")
           if [[ -n "$RELAYS_CSV" ]]; then
-             CMD+=" --relays \"$RELAYS_CSV\""
+            CMD+=(--relays "$RELAYS_CSV")
           fi
         fi
 
         # Handle servers as newline-separated list
-        if [[ -n "${{ inputs.servers }}" ]]; then
-          SERVERS_CSV=$(printf '%s' "${{ inputs.servers }}" | grep -v '^[[:space:]]*$' | tr '\n' ',' | sed 's/,$//')
+        if [[ -n "$INPUT_SERVERS" ]]; then
+          SERVERS_CSV=$(join_nonblank_lines "$INPUT_SERVERS")
           if [[ -n "$SERVERS_CSV" ]]; then
-            CMD+=" --servers \"$SERVERS_CSV\""
+            CMD+=(--servers "$SERVERS_CSV")
           fi
         fi
 
-        if [[ -n "${{ inputs.name }}" ]]; then CMD+=" --name \"${{ inputs.name }}\""; fi
-        if [[ "${{ inputs.force }}" == "true" ]]; then CMD+=" --force"; fi
-        if [[ "${{ inputs.sync }}" == "true" ]]; then CMD+=" --sync"; fi
-        if [[ "${{ inputs.verbose }}" == "true" ]]; then CMD+=" --verbose"; fi
-        if [[ -n "${{ inputs.fallback }}" ]]; then CMD+=" --fallback \"${{ inputs.fallback }}\""; fi
-        if [[ -n "${{ inputs.concurrency }}" ]]; then CMD+=" --concurrency ${{ inputs.concurrency }}"; fi
-        if [[ "${{ inputs.publish_server_list }}" == "true" ]]; then CMD+=" --publish-server-list"; fi
-        if [[ "${{ inputs.publish_relay_list }}" == "true" ]]; then CMD+=" --publish-relay-list"; fi
-        if [[ "${{ inputs.publish_profile }}" == "true" ]]; then CMD+=" --publish-profile"; fi
-        if [[ "${{ inputs.use_fallback_relays }}" == "true" ]]; then CMD+=" --use-fallback-relays"; fi
-        if [[ "${{ inputs.use_fallback_servers }}" == "true" ]]; then CMD+=" --use-fallback-servers"; fi
-        if [[ "${{ inputs.publish_app_handler }}" == "true" ]]; then CMD+=" --publish-app-handler"; fi
-        if [[ -n "${{ inputs.handler_kinds }}" ]]; then CMD+=" --handler-kinds \"${{ inputs.handler_kinds }}\""; fi
+        if [[ -n "$INPUT_NAME" ]]; then CMD+=(--name "$INPUT_NAME"); fi
+        if [[ "$INPUT_FORCE" == "true" ]]; then CMD+=(--force); fi
+        if [[ "$INPUT_SYNC" == "true" ]]; then CMD+=(--sync); fi
+        if [[ "$INPUT_VERBOSE" == "true" ]]; then CMD+=(--verbose); fi
+        if [[ -n "$INPUT_FALLBACK" ]]; then CMD+=(--fallback "$INPUT_FALLBACK"); fi
+        if [[ -n "$INPUT_CONCURRENCY" ]]; then CMD+=(--concurrency "$INPUT_CONCURRENCY"); fi
+        if [[ "$INPUT_PUBLISH_SERVER_LIST" == "true" ]]; then CMD+=(--publish-server-list); fi
+        if [[ "$INPUT_PUBLISH_RELAY_LIST" == "true" ]]; then CMD+=(--publish-relay-list); fi
+        if [[ "$INPUT_PUBLISH_PROFILE" == "true" ]]; then CMD+=(--publish-profile); fi
+        if [[ "$INPUT_USE_FALLBACK_RELAYS" == "true" ]]; then CMD+=(--use-fallback-relays); fi
+        if [[ "$INPUT_USE_FALLBACK_SERVERS" == "true" ]]; then CMD+=(--use-fallback-servers); fi
+        if [[ "$INPUT_PUBLISH_APP_HANDLER" == "true" ]]; then CMD+=(--publish-app-handler); fi
+        if [[ -n "$INPUT_HANDLER_KINDS" ]]; then CMD+=(--handler-kinds "$INPUT_HANDLER_KINDS"); fi
 
         # Secrets scan controls. Feature-detect against `nsyte deploy --help` so older
         # nsyte versions (which have neither the scan nor the flag) still work.
-        NSYTE_HELP=$("${{ steps.download_nsyte.outputs.nsyte_path }}" deploy --help 2>&1 || true)
-        if [[ "${{ inputs.skip_secrets_scan }}" == "true" ]]; then
+        NSYTE_HELP=$("$NSYTE_PATH" deploy --help 2>&1 || true)
+        if [[ "$INPUT_SKIP_SECRETS_SCAN" == "true" ]]; then
           if echo "$NSYTE_HELP" | grep -q -- '--skip-secrets-scan'; then
-            CMD+=" --skip-secrets-scan"
+            CMD+=(--skip-secrets-scan)
           else
             echo "Note: nsyte version does not support --skip-secrets-scan; nothing to skip."
           fi
-        elif [[ -n "${{ inputs.scan_level }}" ]]; then
+        elif [[ -n "$INPUT_SCAN_LEVEL" ]]; then
           if echo "$NSYTE_HELP" | grep -q -- '--scan-level'; then
-            CMD+=" --scan-level \"${{ inputs.scan_level }}\""
+            CMD+=(--scan-level "$INPUT_SCAN_LEVEL")
           else
             echo "Note: nsyte version does not support --scan-level; ignoring scan_level input."
           fi
         fi
-        echo "command=${CMD}" >> $GITHUB_OUTPUT
 
+        echo "nsyte_version_used=$NSYTE_VERSION" >> $GITHUB_OUTPUT
 
-    - name: Run nsyte deploy
-      id: nsyte_run
-      shell: bash
-      run: |
-        set +e # Disable exit on error to manually handle exit codes and ensure outputs are set
-        NSYT_COMMAND="${{ steps.build_cmd.outputs.command }}"
-        
-        # Set version used output using ::set-output
-        #echo "::set-output name=nsyte_version_used::${{ steps.version.outputs.version }}"
-        echo "nsyte_version_used=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
-        
         echo "Executing nsyte command (secrets masked):"
-        MASKED_COMMAND=$(echo "$NSYT_COMMAND" | \
-          sed -e "s/--sec \"[^\"]*\"/--sec \"***MASKED***\"/" \
-              -e "s/--relays \"[^\"]*\"/--relays \"***MASKED***\"/" \
-              -e "s/--servers \"[^\"]*\"/--servers \"***MASKED***\"/")
-        echo "$MASKED_COMMAND"
-        
-        eval "$NSYT_COMMAND"
+        print_masked_command "${CMD[@]}"
+
+        "${CMD[@]}"
         COMMAND_EXIT_CODE=$? # Capture the exit code of the nsyte command
         echo "COMMAND_EXIT_CODE=$COMMAND_EXIT_CODE"
 

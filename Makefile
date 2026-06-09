@@ -13,10 +13,11 @@ help:
 	@echo "  make clean       - Clean up temporary test files"
 	@echo "  make help        - Show this help message"
 
-# Run the local test script
+# Run the local test scripts
 test-local:
-	@echo "Running local test script..."
+	@echo "Running local test scripts..."
 	./scripts/test-local.sh
+	./scripts/test-command-build.sh
 
 # Tag a new version
 tag:

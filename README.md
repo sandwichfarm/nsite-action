@@ -23,7 +23,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 3. **Add to workflow**:
     ```yaml
     - name: Deploy to Nostr/Blossom
-      uses: sandwichfarm/nsite-action@v0.5.0
+      uses: sandwichfarm/nsite-action@v0.5.1
       with:
         nbunksec: ${{ secrets.NBUNK_SECRET }}
         directory: './dist'  # Your built website directory
@@ -40,7 +40,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
    site manifest with that identifier:
    ```yaml
    - name: Deploy named nsite
-     uses: sandwichfarm/nsite-action@v0.5.0
+     uses: sandwichfarm/nsite-action@v0.5.1
      with:
        nbunksec: ${{ secrets.NBUNK_SECRET }}
        directory: './dist'

@@ -66,6 +66,16 @@ if ! grep -q -- '--name' action.yml || ! grep -q -- 'inputs.name' action.yml; th
 fi
 echo "Named-site input is present and forwarded to nsyte."
 
+if grep -qF 'steps.build_cmd.outputs.command' action.yml || grep -qF 'eval "$NSYT_COMMAND"' action.yml; then
+  echo "Unsafe command-output/eval deploy path is still present in action.yml"
+  exit 1
+fi
+if ! grep -qF 'CMD=(' action.yml || ! grep -qF '"${CMD[@]}"' action.yml; then
+  echo "Missing Bash array deploy execution in action.yml"
+  exit 1
+fi
+echo "Deploy command uses a Bash argument array instead of eval."
+
 # Define dummy relays and servers for example
 TEST_RELAYS="wss://relay.example.com,wss://nostr.example.org"
 TEST_SERVERS="https://blossom.example.com"
