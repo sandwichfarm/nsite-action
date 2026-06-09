@@ -54,13 +54,26 @@ mkdir -p "test-local-dir"
 echo "<html><body>Test page</body></html>" > "test-local-dir/index.html"
 echo "Created test-local-dir/index.html"
 
+echo
+echo "Checking action metadata..."
+if ! grep -qE '^  name:$' action.yml; then
+  echo "Missing named-site action input: name"
+  exit 1
+fi
+if ! grep -q -- '--name' action.yml || ! grep -q -- 'inputs.name' action.yml; then
+  echo "Missing nsyte --name forwarding in action.yml"
+  exit 1
+fi
+echo "Named-site input is present and forwarded to nsyte."
+
 # Define dummy relays and servers for example
 TEST_RELAYS="wss://relay.example.com,wss://nostr.example.org"
 TEST_SERVERS="https://blossom.example.com"
+TEST_SITE_NAME="blog"
 
 echo
 echo "Would construct command like:"
-echo "$FAKE_BINARY_NAME deploy './test-local-dir' --sec '<nsec|nbunksec1|bunker://|hex>' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' [OTHER_FLAGS]"
+echo "$FAKE_BINARY_NAME deploy './test-local-dir' --sec '<nsec|nbunksec1|bunker://|hex>' --relays '$TEST_RELAYS' --servers '$TEST_SERVERS' --name '$TEST_SITE_NAME' [OTHER_FLAGS]"
 
 echo
 echo "=== Test Complete ==="

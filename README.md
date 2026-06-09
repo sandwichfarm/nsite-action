@@ -23,11 +23,11 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 3. **Add to workflow**:
     ```yaml
     - name: Deploy to Nostr/Blossom
-      uses: sandwichfarm/nsite-action@v0.4.0
+      uses: sandwichfarm/nsite-action@v0.5.0
       with:
         nbunksec: ${{ secrets.NBUNK_SECRET }}
         directory: './dist'  # Your built website directory
-        version: 'v0.23.0'
+        version: 'v0.27.0'
         relays: |
           wss://relay.nsite.lol
         servers: |
@@ -35,24 +35,41 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
           https://cdn.sovbit.host
     ```
 
+   To deploy a named NIP-5A site instead of the root npub site, set `name`.
+   This is passed to `nsyte deploy` as `--name` and publishes a kind `35128`
+   site manifest with that identifier:
+   ```yaml
+   - name: Deploy named nsite
+     uses: sandwichfarm/nsite-action@v0.5.0
+     with:
+       nbunksec: ${{ secrets.NBUNK_SECRET }}
+       directory: './dist'
+       name: 'blog'
+       relays: |
+         wss://relay.nsite.lol
+       servers: |
+         https://cdn.hzrd149.com
+   ```
+
 ## Inputs
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `version` | No | `latest` | nsyte release tag to download (for example `v0.23.0`) |
+| `version` | No | `latest` | nsyte release tag to download (for example `v0.27.0`) |
 | `nbunksec` | No | - | Recommended CI credential. Must start with `nbunksec1`. This action rejects `sec1` values for this input. |
 | `directory` | Yes | - | Directory containing website files |
 | `relays` | No | `''` | Newline-separated relay URIs |
 | `servers` | No | `''` | Newline-separated Blossom server URIs |
+| `name` | No | `''` | Named NIP-5A site identifier passed to `nsyte deploy --name`. Leave empty to deploy the root npub site. |
 | `force` | No | false | Re-upload all files |
 | `purge` | No | false | Deprecated; there is no deploy-time `--purge` flag in `nsyte` |
 | `sync` | No | false | Check all servers and upload missing blobs |
 | `verbose` | No | false | Show detailed output |
 | `concurrency` | No | 4 | Number of parallel uploads |
 | `fallback` | No | '' | Fallback HTML path (e.g., "/index.html") |
-| `publish_server_list` | No | false | Publish configured servers for fresh identities |
-| `publish_relay_list` | No | false | Publish configured relays for fresh identities |
-| `publish_profile` | No | false | Publish profile metadata for fresh identities |
+| `publish_server_list` | No | false | Publish configured servers for fresh root-site identities |
+| `publish_relay_list` | No | false | Publish configured relays for fresh root-site identities |
+| `publish_profile` | No | false | Publish profile metadata for fresh root-site identities |
 | `use_fallback_relays` | No | false | Include nsyte default relays in addition to configured relays |
 | `use_fallback_servers` | No | false | Include nsyte default servers in addition to configured servers |
 | `publish_app_handler` | No | false | Publish a NIP-89 app handler announcement |
@@ -73,6 +90,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 - Supports Linux, macOS, and Windows
 - Masks sensitive secrets in logs
 - Accepts the safer `nbunksec` action input and passes it through to nsyte
+- Deploys both root NIP-5A nsites and named NIP-5A nsites via `name`
 
 ## Credential Revocation
 

@@ -52,16 +52,16 @@ inputs:
     description: 'Corresponds to the --fallback flag in nsyte deploy. Path to the fallback HTML file (e.g., /index.html for SPAs).'
     required: false
     default: ''
-  publish_server_list: 
-    description: 'true/false. If true, the server list will be published to relays.'
+  publish_server_list:
+    description: 'true/false. If true, the server list will be published to relays. Root sites only.'
     required: false
     default: 'false'
-  publish_relay_list: 
-    description: 'true/false. If true, the relay list will be published to relays.'
+  publish_relay_list:
+    description: 'true/false. If true, the relay list will be published to relays. Root sites only.'
     required: false
     default: 'false'
   publish_profile:
-    description: 'true/false. If true, the profile will be published to relays.'
+    description: 'true/false. If true, the profile will be published to relays. Root sites only.'
     required: false
     default: 'false'
   use_fallback_relays:
@@ -201,7 +201,7 @@ runs:
         echo "version_number=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
 
     - name: Download nsyte
-      id: download_nsyte 
+      id: download_nsyte
       shell: bash
       run: |
         VERSION_TAG="${{ steps.version.outputs.version }}"
