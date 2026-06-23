@@ -28,6 +28,18 @@ inputs:
     description: 'Deploy as a named nsite (NIP-5A). When set, the site is published under this name via --name. When omitted, the site deploys as the root (npub) nsite.'
     required: false
     default: ''
+  title:
+    description: 'Human-readable NIP-5A site title added to the nsyte config before deploy.'
+    required: false
+    default: ''
+  description:
+    description: 'Short human-readable NIP-5A site description added to the nsyte config before deploy.'
+    required: false
+    default: ''
+  config_path:
+    description: 'Path to an nsyte config JSON file, relative to the checked-out project root. The config is validated before deploy.'
+    required: false
+    default: ''
   force:
     description: 'Corresponds to the --force flag in nsyte deploy. Re-deploy all files.'
     required: false
@@ -263,6 +275,9 @@ runs:
         INPUT_RELAYS: ${{ inputs.relays }}
         INPUT_SERVERS: ${{ inputs.servers }}
         INPUT_NAME: ${{ inputs.name }}
+        INPUT_TITLE: ${{ inputs.title }}
+        INPUT_DESCRIPTION: ${{ inputs.description }}
+        INPUT_CONFIG_PATH: ${{ inputs.config_path }}
         INPUT_FORCE: ${{ inputs.force }}
         INPUT_SYNC: ${{ inputs.sync }}
         INPUT_VERBOSE: ${{ inputs.verbose }}
@@ -308,6 +323,76 @@ runs:
           printf '\n'
         }
 
+        fail_before_deploy() {
+          local message="$1"
+          local exit_code="${2:-1}"
+          echo "::error::$message"
+          echo "nsyte_version_used=$NSYTE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+        }
+
+        resolve_workspace_config_path() {
+          local config_path="$1"
+          local workspace="${GITHUB_WORKSPACE:-$PWD}"
+
+          if [[ "$config_path" = /* ]]; then
+            fail_before_deploy "config_path must be relative to the checked-out project root."
+          fi
+
+          if [[ "$config_path" == *".."* ]]; then
+            fail_before_deploy "config_path must stay inside the checked-out project root."
+          fi
+
+          local full_path="$workspace/$config_path"
+          if [[ ! -f "$full_path" ]]; then
+            fail_before_deploy "Config file not found: $config_path"
+          fi
+
+          echo "$full_path"
+        }
+
+        lines_to_json_array() {
+          jq -R -s 'split("\n") | map(gsub("^[[:space:]]+|[[:space:]]+$"; "")) | map(select(length > 0))' <<< "$1"
+        }
+
+        write_effective_config() {
+          local source_config="$1"
+          local output_config="$2"
+          local base_config="$output_config.base"
+          local relays_json
+          local servers_json
+
+          if [[ -n "$source_config" ]]; then
+            cp "$source_config" "$base_config"
+          elif [[ -f "${GITHUB_WORKSPACE:-$PWD}/.nsite/config.json" ]]; then
+            cp "${GITHUB_WORKSPACE:-$PWD}/.nsite/config.json" "$base_config"
+          else
+            printf '{"relays":[],"servers":[]}\n' > "$base_config"
+          fi
+
+          relays_json="$(lines_to_json_array "$INPUT_RELAYS")"
+          servers_json="$(lines_to_json_array "$INPUT_SERVERS")"
+
+          jq \
+            --arg title "$INPUT_TITLE" \
+            --arg description "$INPUT_DESCRIPTION" \
+            --arg id "$INPUT_NAME" \
+            --arg fallback "$INPUT_FALLBACK" \
+            --argjson relays "$relays_json" \
+            --argjson servers "$servers_json" \
+            '
+              .
+              | if ($relays | length) > 0 then .relays = $relays else . end
+              | if ($servers | length) > 0 then .servers = $servers else . end
+              | if $id != "" then .id = $id else . end
+              | if $fallback != "" then .fallback = $fallback else . end
+              | if $title != "" then .title = $title else . end
+              | if $description != "" then .description = $description else . end
+            ' "$base_config" > "$output_config" || fail_before_deploy "Failed to create effective nsyte config."
+        }
+
         NBUNKSEC_VALUE="$INPUT_NBUNKSEC"
         if [[ -n "$NBUNKSEC_VALUE" ]]; then
           if [[ "$NBUNKSEC_VALUE" == sec1* ]]; then
@@ -326,8 +411,44 @@ runs:
           SEC_VALUE="$INPUT_NBUNKSEC"
         fi
 
+        DEPLOY_CONFIG_PATH=""
+        SOURCE_CONFIG_PATH=""
+        NEEDS_EFFECTIVE_CONFIG="false"
+
+        if [[ -n "$INPUT_CONFIG_PATH" ]]; then
+          SOURCE_CONFIG_PATH="$(resolve_workspace_config_path "$INPUT_CONFIG_PATH")"
+          DEPLOY_CONFIG_PATH="$SOURCE_CONFIG_PATH"
+        fi
+
+        if [[ -n "$INPUT_TITLE" || -n "$INPUT_DESCRIPTION" ]]; then
+          NEEDS_EFFECTIVE_CONFIG="true"
+        fi
+
+        if [[ -n "$INPUT_CONFIG_PATH" && ( -n "$INPUT_RELAYS" || -n "$INPUT_SERVERS" || -n "$INPUT_NAME" || -n "$INPUT_FALLBACK" ) ]]; then
+          NEEDS_EFFECTIVE_CONFIG="true"
+        fi
+
+        if [[ "$NEEDS_EFFECTIVE_CONFIG" == "true" ]]; then
+          EFFECTIVE_CONFIG_DIR="$(mktemp -d)"
+          DEPLOY_CONFIG_PATH="$EFFECTIVE_CONFIG_DIR/config.json"
+          write_effective_config "$SOURCE_CONFIG_PATH" "$DEPLOY_CONFIG_PATH"
+        fi
+
+        if [[ -n "$DEPLOY_CONFIG_PATH" ]]; then
+          echo "Validating nsyte config: $DEPLOY_CONFIG_PATH"
+          "$NSYTE_PATH" validate --file "$DEPLOY_CONFIG_PATH"
+          VALIDATE_EXIT_CODE=$?
+          if [[ $VALIDATE_EXIT_CODE -ne 0 ]]; then
+            fail_before_deploy "nsyte config validation failed." "$VALIDATE_EXIT_CODE"
+          fi
+        fi
+
         # The -i flag is critical for non-interactive CI environments.
-        CMD=("$NSYTE_PATH" deploy "$INPUT_DIRECTORY" -i --sec "$SEC_VALUE")
+        CMD=("$NSYTE_PATH")
+        if [[ -n "$DEPLOY_CONFIG_PATH" ]]; then
+          CMD+=(--config "$DEPLOY_CONFIG_PATH")
+        fi
+        CMD+=(deploy "$INPUT_DIRECTORY" -i --sec "$SEC_VALUE")
 
         # Handle relays as newline-separated list
         if [[ -n "$INPUT_RELAYS" ]]; then
