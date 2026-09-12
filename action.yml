@@ -338,6 +338,12 @@ runs:
           exit 0
         }
 
+        # Sets RESOLVED_CONFIG_PATH. Must run in the MAIN shell -- never via
+        # $(...) command substitution: the guards call fail_before_deploy, whose
+        # `exit 0` has to end the step. Inside a subshell it would only end the
+        # substitution, the "::error::" text would be captured into the variable
+        # and used as a (bogus) config path, and $GITHUB_OUTPUT would carry
+        # duplicate status= lines.
         resolve_workspace_config_path() {
           local config_path="$1"
           local workspace="${GITHUB_WORKSPACE:-$PWD}"
@@ -355,7 +361,7 @@ runs:
             fail_before_deploy "Config file not found: $config_path"
           fi
 
-          echo "$full_path"
+          RESOLVED_CONFIG_PATH="$full_path"
         }
 
         lines_to_json_array() {
@@ -429,7 +435,9 @@ runs:
         NEEDS_EFFECTIVE_CONFIG="false"
 
         if [[ -n "$INPUT_CONFIG_PATH" ]]; then
-          SOURCE_CONFIG_PATH="$(resolve_workspace_config_path "$INPUT_CONFIG_PATH")"
+          RESOLVED_CONFIG_PATH=""
+          resolve_workspace_config_path "$INPUT_CONFIG_PATH"
+          SOURCE_CONFIG_PATH="$RESOLVED_CONFIG_PATH"
           DEPLOY_CONFIG_PATH="$SOURCE_CONFIG_PATH"
         fi
 
