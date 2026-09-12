@@ -64,6 +64,10 @@ inputs:
     description: 'Corresponds to the --fallback flag in nsyte deploy. Path to the fallback HTML file (e.g., /index.html for SPAs).'
     required: false
     default: ''
+  created_at:
+    description: 'Override created_at on the published nostr events (Unix epoch seconds or ISO 8601, e.g. 1778414400 or 2026-05-10T12:00:00Z). Passed to nsyte as the global --created-at option. Requires nsyte >= v0.26.0.'
+    required: false
+    default: ''
   publish_server_list:
     description: 'true/false. If true, the server list will be published to relays. Root sites only.'
     required: false
@@ -282,6 +286,7 @@ runs:
         INPUT_SYNC: ${{ inputs.sync }}
         INPUT_VERBOSE: ${{ inputs.verbose }}
         INPUT_FALLBACK: ${{ inputs.fallback }}
+        INPUT_CREATED_AT: ${{ inputs.created_at }}
         INPUT_CONCURRENCY: ${{ inputs.concurrency }}
         INPUT_PUBLISH_SERVER_LIST: ${{ inputs.publish_server_list }}
         INPUT_PUBLISH_RELAY_LIST: ${{ inputs.publish_relay_list }}
@@ -411,6 +416,14 @@ runs:
           SEC_VALUE="$INPUT_NBUNKSEC"
         fi
 
+        # created_at must be Unix epoch seconds or ISO 8601. Validate here so a bad
+        # value aborts before any temp config is written or nsyte is invoked. The
+        # pattern variable is left unquoted in [[ =~ ]] so bash treats it as an ERE.
+        CREATED_AT_PATTERN='^([0-9]+|[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:?[0-9]{2})?)?)$'
+        if [[ -n "$INPUT_CREATED_AT" && ! "$INPUT_CREATED_AT" =~ $CREATED_AT_PATTERN ]]; then
+          fail_before_deploy "created_at must be Unix epoch seconds or ISO 8601 (got: $INPUT_CREATED_AT)."
+        fi
+
         DEPLOY_CONFIG_PATH=""
         SOURCE_CONFIG_PATH=""
         NEEDS_EFFECTIVE_CONFIG="false"
@@ -471,6 +484,7 @@ runs:
         if [[ "$INPUT_SYNC" == "true" ]]; then CMD+=(--sync); fi
         if [[ "$INPUT_VERBOSE" == "true" ]]; then CMD+=(--verbose); fi
         if [[ -n "$INPUT_FALLBACK" ]]; then CMD+=(--fallback "$INPUT_FALLBACK"); fi
+        if [[ -n "$INPUT_CREATED_AT" ]]; then CMD+=(--created-at "$INPUT_CREATED_AT"); fi
         if [[ -n "$INPUT_CONCURRENCY" ]]; then CMD+=(--concurrency "$INPUT_CONCURRENCY"); fi
         if [[ "$INPUT_PUBLISH_SERVER_LIST" == "true" ]]; then CMD+=(--publish-server-list); fi
         if [[ "$INPUT_PUBLISH_RELAY_LIST" == "true" ]]; then CMD+=(--publish-relay-list); fi

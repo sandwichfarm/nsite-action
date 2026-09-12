@@ -23,7 +23,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 3. **Add to workflow**:
     ```yaml
     - name: Deploy to Nostr/Blossom
-      uses: sandwichfarm/nsite-action@v0.5.1
+      uses: sandwichfarm/nsite-action@v0.7.0
       with:
         nbunksec: ${{ secrets.NBUNK_SECRET }}
         directory: './dist'  # Your built website directory
@@ -42,7 +42,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
    site manifest with that identifier:
    ```yaml
    - name: Deploy named nsite
-     uses: sandwichfarm/nsite-action@v0.5.1
+     uses: sandwichfarm/nsite-action@v0.7.0
      with:
        nbunksec: ${{ secrets.NBUNK_SECRET }}
        directory: './dist'
@@ -58,7 +58,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
    before deployment:
    ```yaml
    - name: Deploy with nsyte config
-     uses: sandwichfarm/nsite-action@v0.5.1
+     uses: sandwichfarm/nsite-action@v0.7.0
      with:
        nbunksec: ${{ secrets.NBUNK_SECRET }}
        directory: './dist'
@@ -84,6 +84,7 @@ Deploy static websites to Blossom/Nostr in a GitHub Actions workflow, powered by
 | `verbose` | No | false | Show detailed output |
 | `concurrency` | No | 4 | Number of parallel uploads |
 | `fallback` | No | '' | Fallback HTML path (e.g., "/index.html") |
+| `created_at` | No | `''` | Override `created_at` on the published nostr events — Unix epoch seconds or ISO 8601 — passed to nsyte as the global `--created-at` option (nsyte >= v0.26.0) |
 | `publish_server_list` | No | false | Publish configured servers for fresh root-site identities |
 | `publish_relay_list` | No | false | Publish configured relays for fresh root-site identities |
 | `publish_profile` | No | false | Publish profile metadata for fresh root-site identities |
