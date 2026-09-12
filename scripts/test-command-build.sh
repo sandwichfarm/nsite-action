@@ -200,6 +200,56 @@ if grep -qx -- '--relays' "$CAPTURE_ARGS" || grep -qx -- '--servers' "$CAPTURE_A
   exit 1
 fi
 
+echo "Checking config_path traversal is refused before validation or deploy..."
+TEST_INPUT_CONFIG_PATH="../outside.json" \
+TEST_INPUT_RELAYS="" \
+TEST_INPUT_SERVERS="" \
+TEST_INPUT_NAME="" \
+run_step > "$TMP_DIR/config-path-traversal.log"
+
+if ! grep -q '^::error::config_path must stay inside the checked-out project root\.$' "$TMP_DIR/config-path-traversal.log"; then
+  echo "Traversal config_path did not surface the guard's own error message."
+  cat "$TMP_DIR/config-path-traversal.log"
+  exit 1
+fi
+if [[ -s "$CAPTURE_ARGS" ]]; then
+  echo "Traversal config_path still reached the nsyte deploy command."
+  cat "$CAPTURE_ARGS"
+  exit 1
+fi
+if [[ -s "$VALIDATE_FILES" ]]; then
+  echo "Traversal config_path still reached nsyte validate."
+  cat "$VALIDATE_FILES"
+  exit 1
+fi
+if [[ "$(grep -c '^status=' "$GITHUB_OUTPUT_FILE")" != "1" ]] || ! grep -q '^status=failure$' "$GITHUB_OUTPUT_FILE"; then
+  echo "Traversal config_path did not set exactly one status=failure output."
+  cat "$GITHUB_OUTPUT_FILE"
+  exit 1
+fi
+
+echo "Checking absolute config_path is refused before validation or deploy..."
+TEST_INPUT_CONFIG_PATH="/etc/nsyte.config.json" \
+TEST_INPUT_RELAYS="" \
+TEST_INPUT_SERVERS="" \
+TEST_INPUT_NAME="" \
+run_step > "$TMP_DIR/config-path-absolute.log"
+
+if ! grep -q '^::error::config_path must be relative to the checked-out project root\.$' "$TMP_DIR/config-path-absolute.log"; then
+  echo "Absolute config_path did not surface the guard's own error message."
+  cat "$TMP_DIR/config-path-absolute.log"
+  exit 1
+fi
+if [[ -s "$CAPTURE_ARGS" || -s "$VALIDATE_FILES" ]]; then
+  echo "Absolute config_path still reached nsyte validate or deploy."
+  exit 1
+fi
+if [[ "$(grep -c '^status=' "$GITHUB_OUTPUT_FILE")" != "1" ]] || ! grep -q '^status=failure$' "$GITHUB_OUTPUT_FILE"; then
+  echo "Absolute config_path did not set exactly one status=failure output."
+  cat "$GITHUB_OUTPUT_FILE"
+  exit 1
+fi
+
 echo "Checking created_at epoch seconds pass-through..."
 TEST_INPUT_CREATED_AT="1778414400" \
 run_step > "$TMP_DIR/created-at-epoch.log"
