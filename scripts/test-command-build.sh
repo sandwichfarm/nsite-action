@@ -56,7 +56,7 @@ run_step() {
   local default_relays=$'wss://relay.damus.io\nwss://nos.lol\nwss://relay.nsite.lol\nwss://relay.nosto.re/\nwss://nsite.run'
   local default_servers=$'https://cdn.hzrd149.com/\nhttps://cdn.sovbit.host\nhttps://nostr.download \nhttps://nsite.run\nhttps://blssm.us'
   NSYTE_PATH="$FAKE_NSYTE" \
-  NSYTE_VERSION="v0.27.0" \
+  NSYTE_VERSION="v0.28.1" \
   INPUT_SEC="${TEST_INPUT_SEC-}" \
   INPUT_NBUNKSEC="${TEST_INPUT_NBUNKSEC-nbunksec1testcredential}" \
   INPUT_DIRECTORY="${TEST_INPUT_DIRECTORY-./dist}" \
@@ -70,6 +70,7 @@ run_step() {
   INPUT_SYNC="${TEST_INPUT_SYNC-false}" \
   INPUT_VERBOSE="${TEST_INPUT_VERBOSE-false}" \
   INPUT_FALLBACK="${TEST_INPUT_FALLBACK-}" \
+  INPUT_CREATED_AT="${TEST_INPUT_CREATED_AT-}" \
   INPUT_CONCURRENCY="${TEST_INPUT_CONCURRENCY-4}" \
   INPUT_PUBLISH_SERVER_LIST="${TEST_INPUT_PUBLISH_SERVER_LIST-false}" \
   INPUT_PUBLISH_RELAY_LIST="${TEST_INPUT_PUBLISH_RELAY_LIST-false}" \
@@ -196,6 +197,52 @@ if ! awk -v config="$EXPECTED_CONFIG_PATH" '
 fi
 if grep -qx -- '--relays' "$CAPTURE_ARGS" || grep -qx -- '--servers' "$CAPTURE_ARGS" || grep -qx -- '--name' "$CAPTURE_ARGS"; then
   echo "config_path-only deploy unexpectedly added individual relays, servers, or name flags."
+  exit 1
+fi
+
+echo "Checking created_at epoch seconds pass-through..."
+TEST_INPUT_CREATED_AT="1778414400" \
+run_step > "$TMP_DIR/created-at-epoch.log"
+
+CREATED_AT_ARG=$(awk 'prev == "--created-at" { print; exit } { prev = $0 }' "$CAPTURE_ARGS")
+if [[ "$CREATED_AT_ARG" != "1778414400" ]]; then
+  echo "Epoch created_at input was not passed to nsyte as --created-at (got: '$CREATED_AT_ARG')."
+  exit 1
+fi
+if ! grep -q '^status=success$' "$GITHUB_OUTPUT_FILE"; then
+  echo "Epoch created_at run did not set status=success."
+  exit 1
+fi
+
+echo "Checking created_at ISO 8601 pass-through..."
+TEST_INPUT_CREATED_AT="2026-05-10T12:00:00Z" \
+run_step > "$TMP_DIR/created-at-iso.log"
+
+CREATED_AT_ARG=$(awk 'prev == "--created-at" { print; exit } { prev = $0 }' "$CAPTURE_ARGS")
+if [[ "$CREATED_AT_ARG" != "2026-05-10T12:00:00Z" ]]; then
+  echo "ISO 8601 created_at input was not passed to nsyte as --created-at (got: '$CREATED_AT_ARG')."
+  exit 1
+fi
+if ! grep -q '^status=success$' "$GITHUB_OUTPUT_FILE"; then
+  echo "ISO 8601 created_at run did not set status=success."
+  exit 1
+fi
+
+echo "Checking created_at rejects shell-injection style values before deploy..."
+TEST_INPUT_CREATED_AT='1778414400"; echo pwned' \
+run_step > "$TMP_DIR/created-at-injection.log"
+
+if ! grep -q '^status=failure$' "$GITHUB_OUTPUT_FILE"; then
+  echo "Malformed created_at input did not set status=failure."
+  exit 1
+fi
+if [[ -s "$CAPTURE_ARGS" ]]; then
+  echo "Malformed created_at input still reached the nsyte deploy command."
+  cat "$CAPTURE_ARGS"
+  exit 1
+fi
+if grep -qx 'pwned' "$TMP_DIR/created-at-injection.log"; then
+  echo "Malformed created_at input was executed by the shell."
   exit 1
 fi
 
